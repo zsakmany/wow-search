@@ -15,6 +15,9 @@ ns.L = {
   -- The kind shown on each result row
   KIND_ITEM = "Item",
 
+  -- The actions' names (the action list will show them)
+  ACTION_SHOW_IN_BAG = "Show in bag",
+
   -- The key binding in the game's Keybindings menu
   BINDING_TOGGLE = "Open or close the search bar",
 }

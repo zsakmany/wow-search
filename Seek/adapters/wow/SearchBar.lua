@@ -151,8 +151,9 @@ box:SetScript("OnArrowPressed", function(_, key)
   end
 end)
 
--- Enter does nothing yet; the core decides (actions come in a later step).
--- The handler keeps the text box focused.
+-- Enter runs the selected result's main action and closes the bar; with no
+-- results it does nothing. The core decides; the handler also keeps the
+-- text box from losing focus on its own.
 box:SetScript("OnEnterPressed", function()
   Render(session:PressKey("ENTER"))
 end)

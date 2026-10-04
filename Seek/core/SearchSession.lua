@@ -152,11 +152,25 @@ function SearchSession:Toggle()
   return self:Open()
 end
 
+-- Runs the selected result's main action and closes the search bar, so the
+-- player sees what the action shows. With no results, nothing happens.
+function SearchSession:RunMainAction()
+  local entry = self.results[self.selection]
+  if not entry then
+    return self:View()
+  end
+  self:Close()
+  ns.RunAction(ns.MainAction(entry), entry)
+  return self:View()
+end
+
 -- A key press in the search bar. `key` is the WoW key name, such as "ESCAPE"
--- or "DOWN". Enter does nothing yet.
+-- or "DOWN".
 function SearchSession:PressKey(key)
   if key == "ESCAPE" then
     return self:Close()
+  elseif key == "ENTER" then
+    return self:RunMainAction()
   elseif key == "UP" then
     self:MoveSelection(-1)
   elseif key == "DOWN" then

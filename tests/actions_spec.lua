@@ -9,6 +9,10 @@ local function Item(name, itemID)
   return { name = name, icon = 134400, kind = "item", gameID = itemID, owner = "Tester" }
 end
 
+local function Spell(name, spellID)
+  return { name = name, icon = 135812, kind = "spell", gameID = spellID, owner = "Tester" }
+end
+
 describe("actions", function()
   local ns, session, requests
 
@@ -41,6 +45,15 @@ describe("actions", function()
     session:SetQuery("hearth")
     local view = session:PressKey("ENTER")
     assert.are.same({ { action = "showInBag", kind = "item", gameID = 6948 } }, requests)
+    assert.is_false(view.open)
+  end)
+
+  it("runs show in spellbook for the spell on Enter, and closes the search bar", function()
+    GivenSource("Test.Spells", { Spell("Fireball", 133) })
+    session:Open()
+    session:SetQuery("fireb")
+    local view = session:PressKey("ENTER")
+    assert.are.same({ { action = "showInSpellbook", kind = "spell", gameID = 133 } }, requests)
     assert.is_false(view.open)
   end)
 

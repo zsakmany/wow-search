@@ -8,6 +8,10 @@ local function Item(name, itemID)
   return { name = name, icon = 134400, kind = "item", gameID = itemID, owner = "Tester" }
 end
 
+local function Spell(name, spellID)
+  return { name = name, icon = 135812, kind = "spell", gameID = spellID, owner = "Tester" }
+end
+
 -- The names of the results the search bar shows, top to bottom.
 local function Names(view)
   local names = {}
@@ -88,5 +92,24 @@ describe("matching", function()
     -- The "e" after "ß" does not start a word; the "E" of "Elementar" does.
     Given({ Item("Trank der Größe", 1), Item("Urtümlicher Elementar", 2) })
     assert.are.same({ "Urtümlicher Elementar", "Trank der Größe" }, Names(session:SetQuery("e")))
+  end)
+
+  it("ranks spells and items together in one list, best first", function()
+    -- "st" starts a word in "Rough Stone" and "Stealth", but not in "Frost
+    -- Oil" and "Frostbolt". Equal scores sort by name, whatever the kind.
+    Given({
+      Item("Frost Oil", 3829),
+      Spell("Frostbolt", 116),
+      Item("Rough Stone", 2835),
+      Spell("Stealth", 1784),
+      Spell("Fireball", 133),
+    })
+    local view = session:SetQuery("st")
+    assert.are.same({ "Rough Stone", "Stealth", "Frost Oil", "Frostbolt" }, Names(view))
+    local kinds = {}
+    for i, result in ipairs(view.results) do
+      kinds[i] = result.kindLabel
+    end
+    assert.are.same({ "Item", "Spell", "Item", "Spell" }, kinds)
   end)
 end)

@@ -1,6 +1,7 @@
 -- The WoW action adapter: runs the actions that the core asks for through
 -- the Actions port (core/Actions.lua). Show actions only change what the
--- player sees, so they also work in combat.
+-- player sees, so they also work in combat; show in spellbook is the
+-- exception (see below).
 --
 -- Show in bag works with the default Blizzard bags. With a bag addon that
 -- replaces them (such as Bagnon), the bag addon's own window opens if it
@@ -109,9 +110,35 @@ local function ShowInBag(entry)
   end
 end
 
+-- Opens the spellbook at the spell, with Blizzard's own helper for this
+-- (Blizzard_FrameXMLUtil, PlayerSpellsUtil.lua). It loads the spellbook (a
+-- load-on-demand addon) when it is not loaded yet, opens it, and turns to
+-- the page that holds the spell.
+--
+-- Taint (not tested in the game yet): this runs Blizzard's spellbook code
+-- from addon code. The spellbook's spell buttons cast with a protected call,
+-- and what Blizzard's code writes while Seek's call runs (the tab, the page,
+-- each shown spell's slot) counts as Seek's. A click that casts from such a
+-- page may then be blocked, as in issue #27 with the bags. No taint-free way
+-- to turn to a spell exists for addon code; Seek keeps the risk small: it
+-- calls only this one helper, writes nothing into Blizzard's tables, and
+-- does not open flyouts (they share buttons with the action bars).
+--
+-- Not in combat: WoW lets only Blizzard's code open a window such as the
+-- spellbook in combat (ShowUIPanel shows an "action blocked" message for
+-- addon code). So in combat this action does nothing.
+local function ShowInSpellbook(entry)
+  if InCombatLockdown() or not PlayerSpellsUtil then
+    return
+  end
+  local knownSpellsOnly, toggleFlyout = true, false
+  PlayerSpellsUtil.OpenToSpellBookTabAtSpell(entry.gameID, knownSpellsOnly, toggleFlyout)
+end
+
 -- Each action id from the kind registry (core/Kinds.lua) and how to run it.
 local run = {
   showInBag = ShowInBag,
+  showInSpellbook = ShowInSpellbook,
 }
 
 ns.SetActionAdapter({

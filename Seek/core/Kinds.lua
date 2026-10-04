@@ -22,6 +22,12 @@ ns.kinds = {
       { id = "showInBag", label = L.ACTION_SHOW_IN_BAG, type = "show" },
     },
   },
+  spell = {
+    label = L.KIND_SPELL,
+    actions = {
+      { id = "showInSpellbook", label = L.ACTION_SHOW_IN_SPELLBOOK, type = "show" },
+    },
+  },
 }
 
 -- Check the rules above when the addon loads, so a wrong kind fails at once.

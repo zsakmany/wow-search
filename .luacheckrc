@@ -14,6 +14,12 @@ files["Seek/core/"] = {
 -- (saved variables, slash commands) to `globals` here when they appear.
 files["Seek/adapters/wow/"] = {
   ignore = { "112", "113" }, -- mutating / accessing an undefined global
+  globals = {
+    -- Key binding labels and the function that Bindings.xml calls
+    "BINDING_NAME_SEEK_TOGGLE", "Seek_ToggleSearchBar",
+    -- The /seek slash command
+    "SLASH_SEEK1",
+  },
 }
 
 files["tests/"] = {

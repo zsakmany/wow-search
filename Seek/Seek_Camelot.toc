@@ -1,0 +1,11 @@
+## Interface: 16001
+## Title: Seek
+## Notes: A search bar for your bags, spells, and quests.
+
+# Core: plain Lua 5.1 that never touches the WoW API (docs/adr/0003-hexagonal-core.md).
+core\Locale.lua
+core\SearchSession.lua
+
+# WoW adapters.
+adapters\wow\SearchBar.lua
+adapters\wow\Opening.lua

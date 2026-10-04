@@ -1,0 +1,3 @@
+# Search only the player's own things; game-wide data comes from data packs
+
+Seek's own sources search only what the player has or knows: bag items, known spells, quests in the log, and so on. Seek contains no game database. Data about the whole game (every item, every quest) comes only from data packs: separate, optional addons that add a source through the same public way that Seek's own sources use. Addons cannot use the internet, so a game-wide search needs shipped data. Keeping that data out of the core keeps Seek small, always correct for the player's own things, and free of a database we would have to update after every patch.

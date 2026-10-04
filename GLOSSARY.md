@@ -1,0 +1,53 @@
+# Seek
+
+Seek (work title) is a World of Warcraft addon that opens a search bar on a hotkey and finds the player's own things (bag items, spells, quests, and more) as they type.
+
+## Language
+
+**Search bar**:
+The box that opens on the hotkey, where the player types and sees results.
+_Avoid_: Launcher, palette, spotlight, search window
+
+**Query**:
+The text the player types into the search bar.
+_Avoid_: Search term, input, filter
+
+**Source**:
+One kind of searchable thing, such as bag items, spells, or quests.
+_Avoid_: Provider, category, module, sub-plugin
+
+**Data pack**:
+A separate, optional addon that supplies a source with offline game data, such as every item in the game. Anyone can publish one.
+_Avoid_: Sub-plugin, database, extension
+
+**Entry**:
+One searchable thing that a source supplies, such as one item or one quest.
+_Avoid_: Record, document, item (item means a WoW item)
+
+**Kind**:
+What sort of game thing an entry is, such as item, spell, or quest. Actions belong to the kind, so all entries of one kind have the same actions, whatever their source.
+_Avoid_: Type, category
+
+**Result**:
+An entry that matches the current query and is shown in the search bar.
+_Avoid_: Hit, match, suggestion
+
+**Action**:
+What happens when the player picks a result. Each action is either a show action or a use action.
+_Avoid_: Command, handler, activation
+
+**Show action**:
+An action that opens or highlights the thing, such as opening the quest log at a quest. Combat never blocks it.
+_Avoid_: View, reveal, open
+
+**Use action**:
+An action that makes the character do the thing, such as casting the spell or using the item. Combat can block it.
+_Avoid_: Do, activate, execute, cast
+
+**Main action**:
+The one action a result runs when the player presses Enter. It is always a show action.
+_Avoid_: Default action, primary action
+
+**Action list**:
+The list of a result's other actions, which the player opens from the result.
+_Avoid_: Context menu, secondary actions

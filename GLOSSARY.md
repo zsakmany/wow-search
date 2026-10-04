@@ -24,6 +24,10 @@ _Avoid_: Sub-plugin, database, extension
 One searchable thing that a source supplies, such as one item or one quest.
 _Avoid_: Record, document, item (item means a WoW item)
 
+**Saved copy**:
+The entries that Seek keeps per character between game sessions. Search uses it right after a reload and in combat, until Seek reads the sources again outside combat.
+_Avoid_: Cache, database, snapshot
+
 **Kind**:
 What sort of game thing an entry is, such as item, spell, or quest. Actions belong to the kind, so all entries of one kind have the same actions, whatever their source.
 _Avoid_: Type, category

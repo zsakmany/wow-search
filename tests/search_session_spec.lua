@@ -1,7 +1,7 @@
 -- The search session, driven the way the search bar window drives it: open,
 -- close, set the query, press keys, and read the view state that comes back.
 
-local load_core = require("tests.load_core")
+local FakeGame = require("tests.fake_game")
 
 local HINT = "Search bags, spells, quests…"
 local NO_RESULTS = "No results"
@@ -36,7 +36,7 @@ describe("the search session", function()
   local ns, session
 
   before_each(function()
-    ns = load_core()
+    ns = FakeGame.Started().ns
     session = ns.NewSearchSession()
   end)
 

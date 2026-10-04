@@ -9,19 +9,6 @@ local LAST_BAG = NUM_TOTAL_EQUIPPED_BAG_SLOTS or NUM_BAG_SLOTS
 
 -- Items whose data the game is still loading (item ID -> true).
 local loading = {}
-local noticeQueued = false
-
--- Sends one change notice on the next frame, however many items finish
--- loading in this frame.
-local function QueueNotice()
-  if not noticeQueued then
-    noticeQueued = true
-    C_Timer.After(0, function()
-      noticeQueued = false
-      Seek.NotifyChanged(SOURCE_ID)
-    end)
-  end
-end
 
 -- "Name-Realm" of the current character (the realm can be missing early in
 -- the login).
@@ -34,7 +21,8 @@ local function CurrentCharacter()
 end
 
 -- An item whose data is not loaded yet has no name. Leave it out for now,
--- and send a change notice when the game has loaded it.
+-- and send a change notice when the game has loaded it. (Many items can
+-- load in one frame; Seek reads the bags once for all of their notices.)
 local function GetEntries()
   local entries, seen = {}, {}
   local owner = CurrentCharacter()
@@ -57,7 +45,7 @@ local function GetEntries()
           loading[itemID] = true
           item:ContinueOnItemLoad(function()
             loading[itemID] = nil
-            QueueNotice()
+            Seek.NotifyChanged(SOURCE_ID)
           end)
         end
       end
@@ -70,6 +58,7 @@ Seek.RegisterSource({ id = SOURCE_ID, GetEntries = GetEntries })
 
 -- BAG_UPDATE_DELAYED comes once after a batch of bag changes (loot, sell,
 -- move). PLAYER_ENTERING_WORLD reads the bags once they are ready at login.
+-- Seek decides when to read: in combat, it waits for the end (ADR 0002).
 local events = CreateFrame("Frame")
 events:RegisterEvent("BAG_UPDATE_DELAYED")
 events:RegisterEvent("PLAYER_ENTERING_WORLD")

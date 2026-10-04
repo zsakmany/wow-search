@@ -38,4 +38,4 @@ In the game, `/seek` opens and closes the search bar. A key for it can be set in
 - `Seek/`: the addon itself. Only this folder is linked into WoW.
   - `Seek/core/`: plain Lua 5.1 that never touches the WoW API ([ADR 0003](docs/adr/0003-hexagonal-core.md)). luacheck fails on any WoW global here.
   - `Seek/adapters/wow/`: the WoW adapters. WoW globals are allowed here.
-- `tests/`: busted tests (`*_spec.lua`). They run outside the game. `tests/load_core.lua` loads the core files the way WoW does: in TOC order, each with the shared `ns` table.
+- `tests/`: busted tests (`*_spec.lua`). They run outside the game. `tests/load_core.lua` loads the core files the way WoW does: in TOC order, each with the shared `ns` table. `tests/fake_game.lua` plugs fake adapters into the core's ports (combat state, in-memory storage, a scheduler that the test runs step by step) and simulates a `/reload`.

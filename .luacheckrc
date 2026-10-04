@@ -21,6 +21,8 @@ files["Seek/adapters/wow/"] = {
     "BINDING_NAME_SEEK_TOGGLE", "Seek_ToggleSearchBar",
     -- The /seek slash command
     "SLASH_SEEK1",
+    -- The saved copy of the entries, per character (the TOC's saved variable)
+    "SeekSavedCopy",
   },
 }
 

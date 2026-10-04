@@ -11,9 +11,6 @@ local SOURCE_ID = "Seek.Spells"
 local PLAYER = Enum.SpellBookSpellBank.Player
 local SPELL = Enum.SpellBookItemType.Spell
 
-local noticeQueued = false
-local changedInCombat = false
-
 -- "Name-Realm" of the current character (the realm can be missing early in
 -- the login).
 local function CurrentCharacter()
@@ -55,30 +52,10 @@ end
 Seek.RegisterSource({ id = SOURCE_ID, GetEntries = GetEntries })
 
 -- SPELLS_CHANGED often comes several times in one frame (learning a spell,
--- changing form). Send one change notice on the next frame. In combat, wait
--- for its end: data read in combat can be hidden from addons (ADR 0002).
-local function QueueNotice()
-  if InCombatLockdown() then
-    changedInCombat = true
-  elseif not noticeQueued then
-    noticeQueued = true
-    C_Timer.After(0, function()
-      noticeQueued = false
-      Seek.NotifyChanged(SOURCE_ID)
-    end)
-  end
-end
-
+-- changing form); Seek reads the spellbook once for all of these notices.
+-- Seek decides when to read: in combat, it waits for the end (ADR 0002).
 local events = CreateFrame("Frame")
 events:RegisterEvent("SPELLS_CHANGED")
-events:RegisterEvent("PLAYER_REGEN_ENABLED")
-events:SetScript("OnEvent", function(_, event)
-  if event == "PLAYER_REGEN_ENABLED" then
-    if changedInCombat then
-      changedInCombat = false
-      QueueNotice()
-    end
-  else
-    QueueNotice()
-  end
+events:SetScript("OnEvent", function()
+  Seek.NotifyChanged(SOURCE_ID)
 end)

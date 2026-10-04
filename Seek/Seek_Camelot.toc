@@ -1,18 +1,26 @@
 ## Interface: 16001
 ## Title: Seek
 ## Notes: A search bar for your bags, spells, and quests.
+## SavedVariablesPerCharacter: SeekSavedCopy
 
 # Core: plain Lua 5.1 that never touches the WoW API (docs/adr/0003-hexagonal-core.md).
 core\Locale.lua
 core\Kinds.lua
 core\Actions.lua
+core\Combat.lua
+core\Storage.lua
+core\Scheduler.lua
 core\Matcher.lua
 core\Sources.lua
 core\SearchSession.lua
 
 # WoW adapters. PublicApi.lua first: it publishes the global `Seek` that
-# the sources register through.
+# the sources register through. Storage.lua starts the core when the saved
+# variables are loaded, after all of these files have run.
 adapters\wow\PublicApi.lua
+adapters\wow\CombatState.lua
+adapters\wow\Storage.lua
+adapters\wow\Scheduler.lua
 adapters\wow\Actions.lua
 adapters\wow\SearchBar.lua
 adapters\wow\Opening.lua

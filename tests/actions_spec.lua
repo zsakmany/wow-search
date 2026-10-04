@@ -3,7 +3,7 @@
 -- the search bar does, and a fake action adapter writes down each action
 -- that the core asks it to run.
 
-local load_core = require("tests.load_core")
+local FakeGame = require("tests.fake_game")
 
 local function Item(name, itemID)
   return { name = name, icon = 134400, kind = "item", gameID = itemID, owner = "Tester" }
@@ -21,7 +21,7 @@ describe("actions", function()
   local ns, session, requests
 
   before_each(function()
-    ns = load_core()
+    ns = FakeGame.Started().ns
     -- The fake action adapter: each request is the action id, and the kind
     -- and game ID of the entry.
     requests = {}

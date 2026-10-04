@@ -2,7 +2,7 @@
 -- registers through the public API and sends change notices, and the test
 -- reads the results the way the search bar does.
 
-local load_core = require("tests.load_core")
+local FakeGame = require("tests.fake_game")
 
 local function Item(name, itemID)
   return { name = name, icon = 134400, kind = "item", gameID = itemID, owner = "Tester" }
@@ -24,7 +24,7 @@ describe("a source", function()
   local ns, Seek, bags
 
   before_each(function()
-    ns = load_core()
+    ns = FakeGame.Started().ns
     Seek = ns.api
     -- A fake bag source: the test changes `bags.entries` and sends a notice.
     bags = { id = "Test.Bags", entries = {} }

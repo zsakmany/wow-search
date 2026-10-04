@@ -2,7 +2,7 @@
 -- entries through the public API, the test types a query the way the search
 -- bar does, and reads the results in the view state.
 
-local load_core = require("tests.load_core")
+local FakeGame = require("tests.fake_game")
 
 local function Item(name, itemID)
   return { name = name, icon = 134400, kind = "item", gameID = itemID, owner = "Tester" }
@@ -26,7 +26,7 @@ describe("matching", function()
 
   -- Registers a fake source with these entries and opens the search bar.
   local function Given(entries)
-    local ns = load_core()
+    local ns = FakeGame.Started().ns
     ns.api.RegisterSource({
       id = "Test.Bags",
       GetEntries = function()

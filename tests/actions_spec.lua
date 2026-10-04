@@ -9,6 +9,10 @@ local function Item(name, itemID)
   return { name = name, icon = 134400, kind = "item", gameID = itemID, owner = "Tester" }
 end
 
+local function Quest(title, questID)
+  return { name = title, icon = 133745, kind = "quest", gameID = questID, owner = "Tester" }
+end
+
 describe("actions", function()
   local ns, session, requests
 
@@ -66,6 +70,15 @@ describe("actions", function()
       { action = "showInBag", kind = "item", gameID = 6948 },
       { action = "showInBag", kind = "item", gameID = 2589 },
     }, requests)
+  end)
+
+  it("runs open quest log for the quest on Enter, and closes the search bar", function()
+    GivenSource("Test.Quests", { Quest("The Defias Brotherhood", 65) })
+    session:Open()
+    session:SetQuery("defias")
+    local view = session:PressKey("ENTER")
+    assert.are.same({ { action = "openQuestLog", kind = "quest", gameID = 65 } }, requests)
+    assert.is_false(view.open)
   end)
 
   it("does nothing on Enter when nothing matches", function()

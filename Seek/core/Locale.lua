@@ -14,9 +14,11 @@ ns.L = {
 
   -- The kind shown on each result row
   KIND_ITEM = "Item",
+  KIND_QUEST = "Quest",
 
   -- The actions' names (the action list will show them)
   ACTION_SHOW_IN_BAG = "Show in bag",
+  ACTION_SHOW_IN_QUEST_LOG = "Show in quest log",
 
   -- The key binding in the game's Keybindings menu
   BINDING_TOGGLE = "Open or close the search bar",

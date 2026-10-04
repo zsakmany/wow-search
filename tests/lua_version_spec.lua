@@ -1,0 +1,5 @@
+describe("the test tools", function()
+  it("run on Lua 5.1, the Lua version of WoW", function()
+    assert.are.equal("Lua 5.1", _VERSION)
+  end)
+end)

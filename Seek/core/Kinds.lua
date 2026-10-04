@@ -28,6 +28,12 @@ ns.kinds = {
       { id = "showInSpellbook", label = L.ACTION_SHOW_IN_SPELLBOOK, type = "show" },
     },
   },
+  quest = {
+    label = L.KIND_QUEST,
+    actions = {
+      { id = "openQuestLog", label = L.ACTION_SHOW_IN_QUEST_LOG, type = "show" },
+    },
+  },
 }
 
 -- Check the rules above when the addon loads, so a wrong kind fails at once.

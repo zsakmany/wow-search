@@ -8,6 +8,10 @@ local function Item(name, itemID)
   return { name = name, icon = 134400, kind = "item", gameID = itemID, owner = "Tester" }
 end
 
+local function Quest(title, questID)
+  return { name = title, icon = 133745, kind = "quest", gameID = questID, owner = "Tester" }
+end
+
 local function Names(view)
   local names = {}
   for i, result in ipairs(view.results) do
@@ -82,6 +86,23 @@ describe("a source", function()
     local session = ns.NewSearchSession()
     session:Open()
     assert.are.same({ "Healing Potion", "Minor Healing Potion" }, Names(session:SetQuery("heal")))
+  end)
+
+  it("can give quests, which rank in the same list as items", function()
+    bags.entries = { Item("Wolf Meat", 750) }
+    local quests = { id = "Test.Quests" }
+    function quests.GetEntries()
+      return { Quest("Wolves Across the Border", 33), Quest("Kobold Camp Cleanup", 7) }
+    end
+    Seek.RegisterSource(bags)
+    Seek.RegisterSource(quests)
+    local session = ns.NewSearchSession()
+    session:Open()
+    local view = session:SetQuery("wol")
+    assert.are.same({ "Wolf Meat", "Wolves Across the Border" }, Names(view))
+    assert.are.equal("Item", view.results[1].kindLabel)
+    assert.are.equal("Quest", view.results[2].kindLabel)
+    assert.are.equal("quest", view.results[2].kind)
   end)
 
   it("must have an id and a GetEntries function", function()

@@ -18,3 +18,4 @@ adapters\wow\SearchBar.lua
 adapters\wow\Opening.lua
 adapters\wow\BagSource.lua
 adapters\wow\SpellSource.lua
+adapters\wow\QuestSource.lua

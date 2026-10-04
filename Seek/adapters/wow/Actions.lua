@@ -1,7 +1,7 @@
 -- The WoW action adapter: runs the actions that the core asks for through
 -- the Actions port (core/Actions.lua). Show actions only change what the
--- player sees, so they also work in combat; show in spellbook is the
--- exception (see below).
+-- player sees, so they also work in combat; the exceptions are the
+-- spellbook and the quest log, which WoW does not let addons open in combat.
 --
 -- Show in bag works with the default Blizzard bags. With a bag addon that
 -- replaces them (such as Bagnon), the bag addon's own window opens if it
@@ -135,10 +135,36 @@ local function ShowInSpellbook(entry)
   PlayerSpellsUtil.OpenToSpellBookTabAtSpell(entry.gameID, knownSpellsOnly, toggleFlyout)
 end
 
+-- Opens the quest log (the side panel of the world map on Forever) at the
+-- quest's details, through the function that Blizzard's own objective
+-- tracker calls when the player clicks a quest there.
+--
+-- Not in combat: Blizzard lets no addon show a UI panel such as the world
+-- map in combat, and shows "Interface action failed because of an AddOn"
+-- when one tries. So in combat this does nothing. It also does nothing when
+-- the quest has left the log since Seek read it.
+--
+-- Taint: Blizzard's code runs here as Seek's code, so the fields it writes
+-- (such as the quest that the details panel shows) count as Seek's until
+-- the player closes the world map, which clears them. The quest log has no
+-- secure buttons of its own, and the map refreshes its secure parts in a
+-- way that ignores Seek. See issue #27 for the same risk with the bags.
+local function OpenQuestLog(entry)
+  if InCombatLockdown() or not QuestMapFrame_OpenToQuestDetails
+      or not C_QuestLog.GetLogIndexForQuestID(entry.gameID) then
+    return
+  end
+  if C_GameRules and C_GameRules.IsGameRuleActive(Enum.GameRule.WorldMapDisabled) then
+    return
+  end
+  QuestMapFrame_OpenToQuestDetails(entry.gameID)
+end
+
 -- Each action id from the kind registry (core/Kinds.lua) and how to run it.
 local run = {
   showInBag = ShowInBag,
   showInSpellbook = ShowInSpellbook,
+  openQuestLog = OpenQuestLog,
 }
 
 ns.SetActionAdapter({

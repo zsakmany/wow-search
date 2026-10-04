@@ -1,2 +1,4 @@
 # Local test tools, installed by `make setup`
 /.tools/
+# Agent worktrees
+/.claude/worktrees/

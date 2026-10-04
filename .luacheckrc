@@ -1,6 +1,6 @@
 -- luacheck config. See docs/adr/0003-hexagonal-core.md.
 std = "lua51"
-exclude_files = { ".tools/" }
+exclude_files = { ".tools/", ".claude/" }
 
 -- Core: plain Lua 5.1 that never touches the WoW API. Every WoW global is an
 -- undefined global here, so luacheck fails on it. Also ban the Lua 5.1 globals

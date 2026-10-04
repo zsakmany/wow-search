@@ -4,8 +4,14 @@
 
 # Core: plain Lua 5.1 that never touches the WoW API (docs/adr/0003-hexagonal-core.md).
 core\Locale.lua
+core\Kinds.lua
+core\Matcher.lua
+core\Sources.lua
 core\SearchSession.lua
 
-# WoW adapters.
+# WoW adapters. PublicApi.lua first: it publishes the global `Seek` that
+# the sources register through.
+adapters\wow\PublicApi.lua
 adapters\wow\SearchBar.lua
 adapters\wow\Opening.lua
+adapters\wow\BagSource.lua

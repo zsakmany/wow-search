@@ -15,6 +15,8 @@ files["Seek/core/"] = {
 files["Seek/adapters/wow/"] = {
   ignore = { "112", "113" }, -- mutating / accessing an undefined global
   globals = {
+    -- The public API that other addons use
+    "Seek",
     -- Key binding labels and the function that Bindings.xml calls
     "BINDING_NAME_SEEK_TOGGLE", "Seek_ToggleSearchBar",
     -- The /seek slash command

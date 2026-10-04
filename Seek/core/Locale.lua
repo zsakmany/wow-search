@@ -9,6 +9,12 @@ ns.L = {
   -- The search bar's text box while the query is empty
   HINT = "Search bags, spells, quests…",
 
+  -- The search bar's text when the query matches nothing
+  NO_RESULTS = "No results",
+
+  -- The kind shown on each result row
+  KIND_ITEM = "Item",
+
   -- The key binding in the game's Keybindings menu
   BINDING_TOGGLE = "Open or close the search bar",
 }

@@ -7,11 +7,20 @@ local _, ns = ...
 
 local L = ns.L
 
-local session = ns.NewSearchSession()
+local VISIBLE_ROWS = 8 -- the core sends at most this many result rows
+local ROW_HEIGHT = 24
+local TOP_HEIGHT = 64 -- the title bar and the text box
+local QUESTION_MARK_ICON = 134400 -- for an entry without an icon
+
+local Render -- defined below; the session calls it after a change notice
+
+local session = ns.NewSearchSession(function(view)
+  Render(view)
+end)
 
 -- Blizzard-style window at the top center of the screen. Not movable.
 local frame = CreateFrame("Frame", "SeekSearchBar", UIParent, "BasicFrameTemplateWithInset")
-frame:SetSize(420, 64)
+frame:SetSize(420, TOP_HEIGHT)
 frame:SetPoint("TOP", UIParent, "TOP", 0, -120)
 frame:SetFrameStrata("DIALOG")
 frame:SetToplevel(true)
@@ -25,30 +34,95 @@ table.insert(UISpecialFrames, frame:GetName())
 
 local box = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
 box:SetHeight(20)
-box:SetPoint("LEFT", frame, "LEFT", 18, -10)
-box:SetPoint("RIGHT", frame, "RIGHT", -14, -10)
+box:SetPoint("TOPLEFT", frame, "TOPLEFT", 18, -32)
+box:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -14, -32)
 box:SetAutoFocus(false)
+-- Send Up and Down to OnArrowPressed without the Alt key.
+box:SetAltArrowKeyMode(false)
 
 local hint = box:CreateFontString(nil, "ARTWORK", "GameFontDisable")
 hint:SetPoint("LEFT", box, "LEFT", 0, 0)
 
--- Shows a view state from the core.
-local function Render(view)
+local noResults = frame:CreateFontString(nil, "ARTWORK", "GameFontDisable")
+noResults:SetPoint("TOPLEFT", frame, "TOPLEFT", 18, -TOP_HEIGHT)
+
+-- The result rows: icon, name, and kind. The selected row is lit.
+local rows = {}
+for i = 1, VISIBLE_ROWS do
+  local row = CreateFrame("Frame", nil, frame)
+  row:SetHeight(ROW_HEIGHT)
+  row:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -(TOP_HEIGHT - 4) - (i - 1) * ROW_HEIGHT)
+  row:SetPoint("RIGHT", frame, "RIGHT", -10, 0)
+
+  row.selection = row:CreateTexture(nil, "BACKGROUND")
+  row.selection:SetAllPoints()
+  row.selection:SetColorTexture(1, 1, 1, 0.15)
+
+  row.icon = row:CreateTexture(nil, "ARTWORK")
+  row.icon:SetSize(20, 20)
+  row.icon:SetPoint("LEFT", row, "LEFT", 4, 0)
+
+  row.kind = row:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+  row.kind:SetPoint("RIGHT", row, "RIGHT", -6, 0)
+  row.kind:SetJustifyH("RIGHT")
+
+  row.name = row:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+  row.name:SetPoint("LEFT", row.icon, "RIGHT", 6, 0)
+  row.name:SetPoint("RIGHT", row.kind, "LEFT", -8, 0)
+  row.name:SetJustifyH("LEFT")
+  row.name:SetWordWrap(false)
+
+  row:Hide()
+  rows[i] = row
+end
+
+-- Shows the query, the hint, the result rows, and the "no results" text.
+local function RenderContent(view)
   if box:GetText() ~= view.query then
     box:SetText(view.query)
   end
   hint:SetText(view.hint or "")
   hint:SetShown(view.hint ~= nil)
+  noResults:SetText(view.noResults or "")
+  noResults:SetShown(view.noResults ~= nil)
+
+  for i, row in ipairs(rows) do
+    local result = view.results[i]
+    if result then
+      row.icon:SetTexture(result.icon or QUESTION_MARK_ICON)
+      row.name:SetText(result.name)
+      row.kind:SetText(result.kindLabel)
+      row.selection:SetShown(result.selected)
+      row:Show()
+    else
+      row:Hide()
+    end
+  end
+
+  local height = TOP_HEIGHT
+  if #view.results > 0 then
+    height = height + #view.results * ROW_HEIGHT + 4
+  elseif view.noResults then
+    height = height + ROW_HEIGHT
+  end
+  frame:SetHeight(height)
+end
+
+-- Shows a view state from the core.
+function Render(view)
+  RenderContent(view)
   if view.open then
-    frame:Show()
-    -- Take the focus one frame later. The key that opened the bar (for
-    -- example Cmd+K) also sends its letter, and with focus now, that "k"
-    -- would land in the text box.
-    C_Timer.After(0, function()
-      if frame:IsShown() then
-        box:SetFocus()
-      end
-    end)
+    if not frame:IsShown() then
+      frame:Show()
+      -- Take the focus one frame later. The key that opened the bar (for
+      -- example Cmd+K) also sends its letter, and with focus now, that "k"
+      -- would land in the text box.
+      C_Timer.After(0, function()
+        if frame:IsShown() then
+          box:SetFocus()
+        end
+      end)
+    end
   else
     -- Give the keyboard back, so the player's key bindings work again.
     box:ClearFocus()
@@ -69,6 +143,18 @@ end)
 
 box:SetScript("OnEscapePressed", function()
   Render(session:PressKey("ESCAPE"))
+end)
+
+box:SetScript("OnArrowPressed", function(_, key)
+  if key == "UP" or key == "DOWN" then
+    Render(session:PressKey(key))
+  end
+end)
+
+-- Enter does nothing yet; the core decides (actions come in a later step).
+-- The handler keeps the text box focused.
+box:SetScript("OnEnterPressed", function()
+  Render(session:PressKey("ENTER"))
 end)
 
 -- While the text box has focus, key bindings do not fire. Catch the Seek

@@ -28,6 +28,7 @@ adapters\wow\Actions.lua
 adapters\wow\SearchBar.lua
 adapters\wow\Opening.lua
 adapters\wow\SuggestedKey.lua
+adapters\wow\LongText.lua
 adapters\wow\BagSource.lua
 adapters\wow\SpellSource.lua
 adapters\wow\QuestSource.lua

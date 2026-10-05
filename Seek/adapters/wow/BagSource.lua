@@ -1,11 +1,15 @@
 -- Seek's bag source: one entry per distinct item in the character's bags
--- (the backpack and the equipped bags, not the bank). It registers through
--- the public `Seek` table, like any other addon's source.
+-- (the backpack and the equipped bags, not the bank), with the item's
+-- tooltip text as its long text. It registers through the public `Seek`
+-- table, like any other addon's source.
+local _, ns = ...
 
 local SOURCE_ID = "Seek.Bags"
 
 local FIRST_BAG = Enum.BagIndex.Backpack
 local LAST_BAG = NUM_TOTAL_EQUIPPED_BAG_SLOTS or NUM_BAG_SLOTS
+
+local ITEM_NAME_LINE = Enum.TooltipDataLineType.ItemName
 
 -- Items whose data the game is still loading (item ID -> true).
 local loading = {}
@@ -20,9 +24,25 @@ local function CurrentCharacter()
   return name
 end
 
--- An item whose data is not loaded yet has no name. Leave it out for now,
--- and send a change notice when the game has loaded it. (Many items can
--- load in one frame; Seek reads the bags once for all of their notices.)
+-- The tooltip text of the item in a bag slot: each line's left and right
+-- text, without the line with the item's name (the entry's name already has
+-- it). The tooltip data comes from the game, without showing a tooltip.
+local function TooltipText(bag, slot)
+  local data = C_TooltipInfo.GetBagItem(bag, slot)
+  local pieces = {}
+  for _, line in ipairs(data and data.lines or {}) do
+    if line.type ~= ITEM_NAME_LINE then
+      pieces[#pieces + 1] = line.leftText
+      pieces[#pieces + 1] = line.rightText
+    end
+  end
+  return ns.LongText(pieces)
+end
+
+-- An item whose data is not loaded yet has no name, and its tooltip text
+-- can be incomplete. Leave it out for now, and send a change notice when the
+-- game has loaded it. (Many items can load in one frame; Seek reads the bags
+-- once for all of their notices.)
 local function GetEntries()
   local entries, seen = {}, {}
   local owner = CurrentCharacter()
@@ -40,6 +60,7 @@ local function GetEntries()
             kind = "item",
             gameID = itemID,
             owner = owner,
+            longText = TooltipText(bag, slot),
           }
         elseif not loading[itemID] then
           loading[itemID] = true

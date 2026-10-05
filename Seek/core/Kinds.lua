@@ -15,11 +15,12 @@
 --          that can be used gets "use"
 -- An entry gets only those of its kind's actions that it can do. Its first
 -- action is its main action, which Enter runs, when it is a show action;
--- Enter never makes the character do something. An entry with no show
--- action has no main action: Enter does nothing for it. An entry with no
--- actions at all is a faded result (see GLOSSARY.md). The action list
--- shows all of the entry's actions, in this order: the show actions first,
--- then the use actions.
+-- Enter never makes the character do something; the use key runs the
+-- entry's first use action instead. An entry with no show action has no
+-- main action: Enter does nothing for it. An entry with no actions at all
+-- is a faded result (see GLOSSARY.md). The action list shows all of the
+-- entry's actions, in this order: the show actions first, then the use
+-- actions.
 local _, ns = ...
 
 local L = ns.L
@@ -98,5 +99,15 @@ function ns.MainAction(entry)
   local first = ns.EntryActions(entry)[1]
   if first and first.type == "show" then
     return first
+  end
+end
+
+-- The entry's first use action: what the use key runs. Nil when the entry
+-- has no use action.
+function ns.FirstUseAction(entry)
+  for _, action in ipairs(ns.EntryActions(entry)) do
+    if action.type == "use" then
+      return action
+    end
   end
 end

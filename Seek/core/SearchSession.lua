@@ -4,7 +4,8 @@
 -- returns. See docs/adr/0003.
 --
 -- The combat rule: in combat, every use action is blocked. The action list
--- marks it, and picking it does nothing. Show actions are never blocked.
+-- marks it, and picking it does nothing; the use key does nothing either,
+-- and marks the selected result. Show actions are never blocked.
 local _, ns = ...
 
 local L = ns.L
@@ -24,14 +25,21 @@ local function Blocked(action)
 end
 
 -- The view state after a change. It also tells the action adapter which use
--- action Enter would run now, so that the adapter can get it ready (see
--- Actions.lua): the selected action of the open action list, when it is a
--- use action that combat does not block.
+-- action the next key press would run now, so that the adapter can get it
+-- ready (see Actions.lua), when it is one that combat does not block: while
+-- the action list is open, its selected action (Enter); else the selected
+-- result's first use action (the use key).
 local function Changed(session)
   local list = session.actionList
-  local action = list and list.actions[list.selection]
+  local action, entry
+  if list then
+    action, entry = list.actions[list.selection], list.entry
+  else
+    entry = session.results[session.selection]
+    action = entry and ns.FirstUseAction(entry)
+  end
   if session.isOpen and action and action.type == "use" and not Blocked(action) then
-    ns.PrepareAction(action, list.entry)
+    ns.PrepareAction(action, entry)
   else
     ns.PrepareAction(nil)
   end
@@ -56,6 +64,10 @@ function ns.NewSearchSession(onViewChanged)
     -- The open action list, or nil: the result it belongs to (`entry`),
     -- that result's actions, and the selected action's position.
     actionList = nil,
+    -- The result on which combat blocked the use key, or nil. Its row shows
+    -- the "blocked in combat" sign until the next key press, a new query,
+    -- or the end of combat.
+    useKeyBlocked = nil,
   }, SearchSession)
   local function Update()
     local view = Changed(session)
@@ -74,7 +86,10 @@ function ns.NewSearchSession(onViewChanged)
   end
   ns.WatchEntries(SearchAgain)
   ns.WatchSettings(SearchAgain)
-  ns.WatchCombat(function()
+  ns.WatchCombat(function(inCombat)
+    if not inCombat then
+      session.useKeyBlocked = nil
+    end
     if session.isOpen then
       Update()
     end
@@ -163,6 +178,7 @@ function SearchSession:Search(keepSelection)
   self.results, self.matchedLetters = results, matchedLetters
   if not keepSelection then
     self.selection, self.scroll = 1, 0
+    self.useKeyBlocked = nil
   end
   self:MoveSelection(0)
 
@@ -242,18 +258,22 @@ end
 --              another character's result, see OwnerText: the row's kind
 --              text), faded (true for a result with no actions:
 --              the search bar draws it faded), selected (true on one row),
---              and matchedLetters: the positions of the name's letters that
+--              matchedLetters: the positions of the name's letters that
 --              matched the query, in order, counted in whole letters (nil
 --              for a long text match and for the recently picked things;
---              the window must not change this list). The search bar shows
---              these letters in gold.
+--              the window must not change this list; the search bar shows
+--              these letters in gold), and blocked (true on the selected row
+--              after combat blocked the use key there: the row shows the
+--              "blocked in combat" sign)
 --   scroll     how many results are above the first visible row
 --   total      how many results there are in all
 --   actionList the open action list, else nil. It belongs to the selected
 --              result. `rows` holds the actions, top to bottom; each has
 --              id, label, type ("show" or "use"), selected (true on one
---              row), and blocked (true when combat blocks the action: the
---              row shows the "blocked in combat" sign)
+--              row), blocked (true when combat blocks the action: the
+--              row shows the "blocked in combat" sign), and useKey (true on
+--              the result's first use action, which the use key runs: the
+--              row shows the use key)
 --   tooltip    the result row that shows its WoW tooltip, else nil (see
 --              Tooltip): `row` is its position in `results`, and `side`
 --              ("right" or "left") the side of the search bar where the
@@ -273,12 +293,14 @@ function SearchSession:View()
       kindLabel = owner and L.KIND_WITH_OWNER:format(kindLabel, owner) or kindLabel,
       faded = not ns.HasActions(entry),
       selected = i == self.selection,
+      blocked = i == self.selection and SameThing(entry, self.useKeyBlocked),
       matchedLetters = self.matchedLetters[entry],
     }
   end
   local actionList
   if self.actionList then
     local actionRows = {}
+    local useKeyAction = ns.FirstUseAction(self.actionList.entry)
     for i, action in ipairs(self.actionList.actions) do
       actionRows[i] = {
         id = action.id,
@@ -286,6 +308,7 @@ function SearchSession:View()
         type = action.type,
         selected = i == self.actionList.selection,
         blocked = Blocked(action),
+        useKey = action == useKeyAction,
       }
     end
     actionList = { rows = actionRows }
@@ -346,6 +369,27 @@ function SearchSession:RunMainAction()
   return self:View()
 end
 
+-- The use key: runs the selected result's first use action and closes the
+-- search bar, without the action list. With no results, or for a result
+-- with no use action, nothing happens; it never runs the main action
+-- instead. A blocked action does nothing, and the search bar stays open
+-- with the sign on the selected result.
+function SearchSession:RunUseAction()
+  local entry = self.results[self.selection]
+  local action = entry and ns.FirstUseAction(entry)
+  if not action then
+    return Changed(self)
+  end
+  if Blocked(action) then
+    self.useKeyBlocked = entry
+    return Changed(self)
+  end
+  self:Close()
+  ns.RunAction(action, entry)
+  ns.RecordPick(entry, self.query)
+  return self:View()
+end
+
 -- Opens the action list of the selected result, with its main action
 -- selected. With no results, or for a faded result (no actions), nothing
 -- happens.
@@ -393,10 +437,14 @@ function SearchSession:PressKeyInActionList(key)
 end
 
 -- A key press in the search bar. `key` is the WoW key name, such as "ESCAPE"
--- or "DOWN". Up and Down move the selection, Enter runs the main action,
--- Tab opens the action list, and Escape closes the search bar; while the
--- action list is open, the keys work in the list instead.
+-- or "DOWN", or "USE" for the use key (the search bar sends "USE" for
+-- Cmd+Enter on a Mac and Ctrl+Enter on Windows). Up and Down move
+-- the selection, Enter runs the main action, the use key runs the first use
+-- action, Tab opens the action list, and Escape closes the search bar;
+-- while the action list is open, the keys work in the list instead, and
+-- the use key does nothing there.
 function SearchSession:PressKey(key)
+  self.useKeyBlocked = nil
   if self.actionList then
     return self:PressKeyInActionList(key)
   end
@@ -406,6 +454,8 @@ function SearchSession:PressKey(key)
     return self:Close()
   elseif key == "ENTER" then
     return self:RunMainAction()
+  elseif key == "USE" then
+    return self:RunUseAction()
   elseif key == "UP" then
     self:MoveSelection(-1)
   elseif key == "DOWN" then

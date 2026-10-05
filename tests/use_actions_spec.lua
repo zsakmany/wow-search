@@ -36,6 +36,32 @@ local function ListRows(view)
   return rows, selected
 end
 
+-- The result rows as "name", "name (selected)", or "name (blocked,
+-- selected)", top to bottom.
+local function ResultRows(view)
+  local rows = {}
+  for i, row in ipairs(view.results) do
+    local marks = {}
+    if row.blocked then
+      marks[#marks + 1] = "blocked"
+    end
+    if row.selected then
+      marks[#marks + 1] = "selected"
+    end
+    rows[i] = #marks > 0 and row.name .. " (" .. table.concat(marks, ", ") .. ")" or row.name
+  end
+  return rows
+end
+
+-- The label of the action list's row that shows the use key, or nil.
+local function UseKeyRow(view)
+  for _, row in ipairs(view.actionList.rows) do
+    if row.useKey then
+      return row.label
+    end
+  end
+end
+
 -- A fake action adapter: `requests` holds each action that the core asked
 -- to run, and `prepared` the use action that the core asked to prepare last
 -- ("action kind gameID", or false for none).
@@ -197,6 +223,103 @@ describe("use actions", function()
     assert.are.same({ "Show in bag", "Use (blocked)" }, (ListRows(again:PressKey("TAB"))))
   end)
 
+  describe("the use key", function()
+    -- "Hearthstone" and "Hearty Rhino Hide" both match "hea"; the score puts
+    -- "Hearthstone" first. Both can be used.
+    local bags = { Item("Hearthstone", 6948, true), Item("Hearty Rhino Hide", 8171, true) }
+
+    before_each(function()
+      GivenSource("Test.Bags", bags)
+    end)
+
+    -- Opens the search bar, types "hea", and moves down to "Hearty Rhino
+    -- Hide".
+    local function SelectHide()
+      session:Open()
+      session:SetQuery("hea")
+      return session:PressKey("DOWN")
+    end
+
+    it("uses the selected item and closes the search bar", function()
+      SelectHide()
+      local view = session:PressKey("USE")
+      assert.are.same({ { action = "useItem", kind = "item", gameID = 8171 } }, actions.requests)
+      assert.is_false(view.open)
+    end)
+
+    it("casts the selected spell", function()
+      GivenSource("Test.Spells", { Spell("Fireball", 133) })
+      session:Open()
+      session:SetQuery("fireb")
+      session:PressKey("USE")
+      assert.are.same({ { action = "castSpell", kind = "spell", gameID = 133 } }, actions.requests)
+    end)
+
+    it("does nothing on a result with no use action, and never runs the main action instead", function()
+      GivenSource("Test.Cloth", { Item("Linen Cloth", 2589) })
+      GivenSource("Test.Quests", { Quest("The Defias Brotherhood", 65) })
+      for _, query in ipairs({ "linen", "defias" }) do
+        session:Open()
+        session:SetQuery(query)
+        assert.is_true(session:PressKey("USE").open)
+      end
+      assert.are.same({}, actions.requests)
+    end)
+
+    it("does nothing on a faded result", function()
+      -- Another character's Hearthstone: it has no actions.
+      GivenSource("Test.Others", {
+        { name = "Hearthstone", icon = 134400, kind = "item", gameID = 6948, owner = "Bob", usable = true },
+      })
+      session:Open()
+      session:SetQuery("hearthst")
+      local view = session:PressKey("DOWN")
+      assert.are.same({ "Hearthstone", "Hearthstone (selected)" }, ResultRows(view))
+      assert.is_true(view.results[2].faded)
+      view = session:PressKey("USE")
+      assert.are.same({}, actions.requests)
+      assert.is_true(view.open)
+    end)
+
+    it("does nothing while the action list is open", function()
+      SelectHide()
+      session:PressKey("TAB")
+      local view = session:PressKey("USE")
+      assert.are.same({}, actions.requests)
+      assert.are.same({ "Show in bag", "Use" }, (ListRows(view)))
+    end)
+
+    it("shows in the action list, next to the first use action", function()
+      GivenSource("Test.Spells", { Spell("Fireball", 133) })
+      GivenSource("Test.Cloth", { Item("Linen Cloth", 2589) })
+      assert.are.equal("Use", UseKeyRow(OpenList("hearth")))
+      assert.are.equal("Cast", UseKeyRow(OpenList("fireb")))
+      assert.is_nil(UseKeyRow(OpenList("linen")))
+    end)
+
+    it("in combat, runs nothing, keeps the search bar open, and shows the sign on the result", function()
+      game:EnterCombat()
+      SelectHide()
+      local view = session:PressKey("USE")
+      assert.are.same({}, actions.requests)
+      assert.is_true(view.open)
+      assert.are.same({ "Hearthstone", "Hearty Rhino Hide (blocked, selected)" }, ResultRows(view))
+    end)
+
+    it("takes the sign away on the next key, and when combat ends", function()
+      game:EnterCombat()
+      SelectHide()
+      session:PressKey("USE")
+      session:PressKey("TAB")
+      local view = session:PressKey("ESCAPE")
+      assert.are.same({ "Hearthstone", "Hearty Rhino Hide (selected)" }, ResultRows(view))
+
+      session:PressKey("USE")
+      game:LeaveCombat()
+      assert.are.same({ "Hearthstone", "Hearty Rhino Hide (selected)" }, ResultRows(shown))
+    end)
+  end)
+
   describe("preparing", function()
     it("prepares the selected use action, and nothing on a show action", function()
       GivenSource("Test.Bags", { Item("Hearthstone", 6948, true) })
@@ -208,24 +331,44 @@ describe("use actions", function()
       assert.is_false(actions.prepared)
     end)
 
-    it("prepares nothing once the action list or the search bar closes", function()
-      GivenSource("Test.Spells", { Spell("Fireball", 133) })
-      OpenList("fireb")
+    it("prepares the selected result's first use action while the action list is closed", function()
+      GivenSource("Test.Bags", { Item("Hearthstone", 6948, true), Item("Hearty Rhino Hide", 8171) })
+      session:Open()
+      session:SetQuery("hea")
+      assert.are.equal("useItem item 6948", actions.prepared)
+      -- The hide cannot be used.
       session:PressKey("DOWN")
-      assert.are.equal("castSpell spell 133", actions.prepared)
-      session:PressKey("ESCAPE")
       assert.is_false(actions.prepared)
-
-      session:PressKey("TAB")
-      session:PressKey("DOWN")
-      session:Close()
-      assert.is_false(actions.prepared)
+      session:PressKey("UP")
+      assert.are.equal("useItem item 6948", actions.prepared)
     end)
+
+    it("prepares the result's use action again once the action list closes, and nothing once the search bar closes",
+      function()
+        GivenSource("Test.Bags", { Item("Hearthstone", 6948, true) })
+        OpenList("hearth")
+        assert.is_false(actions.prepared)
+        session:PressKey("ESCAPE")
+        assert.are.equal("useItem item 6948", actions.prepared)
+
+        session:Close()
+        assert.is_false(actions.prepared)
+      end)
 
     it("prepares nothing in combat, and the selected use action again when combat ends", function()
       GivenSource("Test.Bags", { Item("Hearthstone", 6948, true) })
       OpenList("hearth")
       session:PressKey("DOWN")
+      game:EnterCombat()
+      assert.is_false(actions.prepared)
+      game:LeaveCombat()
+      assert.are.equal("useItem item 6948", actions.prepared)
+    end)
+
+    it("prepares nothing for the selected result in combat, and its use action again when combat ends", function()
+      GivenSource("Test.Bags", { Item("Hearthstone", 6948, true) })
+      session:Open()
+      session:SetQuery("hearth")
       game:EnterCombat()
       assert.is_false(actions.prepared)
       game:LeaveCombat()

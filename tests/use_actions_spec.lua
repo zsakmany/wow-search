@@ -247,7 +247,7 @@ describe("use actions", function()
       assert.is_false(view.open)
     end)
 
-    it("casts the selected spell", function()
+    it("runs the selected spell's use action (Cast)", function()
       GivenSource("Test.Spells", { Spell("Fireball", 133) })
       session:Open()
       session:SetQuery("fireb")

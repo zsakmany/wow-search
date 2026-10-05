@@ -64,10 +64,10 @@ function ns.NewSearchSession(onViewChanged)
     -- The open action list, or nil: the result it belongs to (`entry`),
     -- that result's actions, and the selected action's position.
     actionList = nil,
-    -- The result on which combat blocked the use key, or nil. Its row shows
-    -- the "blocked in combat" sign until the next key press, a new query,
-    -- or the end of combat.
-    useKeyBlocked = nil,
+    -- The entry of the result on which combat blocked the use key, or nil.
+    -- Its row shows the "blocked in combat" sign until the next key press, a
+    -- new query, or the end of combat.
+    useKeyBlockedEntry = nil,
   }, SearchSession)
   local function Update()
     local view = Changed(session)
@@ -88,7 +88,7 @@ function ns.NewSearchSession(onViewChanged)
   ns.WatchSettings(SearchAgain)
   ns.WatchCombat(function(inCombat)
     if not inCombat then
-      session.useKeyBlocked = nil
+      session.useKeyBlockedEntry = nil
     end
     if session.isOpen then
       Update()
@@ -178,7 +178,7 @@ function SearchSession:Search(keepSelection)
   self.results, self.matchedLetters = results, matchedLetters
   if not keepSelection then
     self.selection, self.scroll = 1, 0
-    self.useKeyBlocked = nil
+    self.useKeyBlockedEntry = nil
   end
   self:MoveSelection(0)
 
@@ -293,7 +293,7 @@ function SearchSession:View()
       kindLabel = owner and L.KIND_WITH_OWNER:format(kindLabel, owner) or kindLabel,
       faded = not ns.HasActions(entry),
       selected = i == self.selection,
-      blocked = i == self.selection and SameThing(entry, self.useKeyBlocked),
+      blocked = i == self.selection and SameThing(entry, self.useKeyBlockedEntry),
       matchedLetters = self.matchedLetters[entry],
     }
   end
@@ -355,6 +355,14 @@ function SearchSession:Toggle()
   return self:Open()
 end
 
+-- Closes the search bar, runs `action` on `entry`, and remembers the pick.
+local function RunAndPick(session, action, entry)
+  session:Close()
+  ns.RunAction(action, entry)
+  ns.RecordPick(entry, session.query)
+  return session:View()
+end
+
 -- Runs the selected result's main action and closes the search bar, so the
 -- player sees what the action shows. With no results, or when the result's
 -- kind has no main action, nothing happens.
@@ -363,10 +371,7 @@ function SearchSession:RunMainAction()
   if not entry or not ns.MainAction(entry) then
     return Changed(self)
   end
-  self:Close()
-  ns.RunAction(ns.MainAction(entry), entry)
-  ns.RecordPick(entry, self.query)
-  return self:View()
+  return RunAndPick(self, ns.MainAction(entry), entry)
 end
 
 -- The use key: runs the selected result's first use action and closes the
@@ -381,13 +386,10 @@ function SearchSession:RunUseAction()
     return Changed(self)
   end
   if Blocked(action) then
-    self.useKeyBlocked = entry
+    self.useKeyBlockedEntry = entry
     return Changed(self)
   end
-  self:Close()
-  ns.RunAction(action, entry)
-  ns.RecordPick(entry, self.query)
-  return self:View()
+  return RunAndPick(self, action, entry)
 end
 
 -- Opens the action list of the selected result, with its main action
@@ -415,10 +417,7 @@ function SearchSession:RunListAction()
   if Blocked(action) then
     return Changed(self)
   end
-  self:Close()
-  ns.RunAction(action, list.entry)
-  ns.RecordPick(list.entry, self.query)
-  return self:View()
+  return RunAndPick(self, action, list.entry)
 end
 
 -- A key press while the action list is open. Escape closes only the list,
@@ -444,7 +443,7 @@ end
 -- while the action list is open, the keys work in the list instead, and
 -- the use key does nothing there.
 function SearchSession:PressKey(key)
-  self.useKeyBlocked = nil
+  self.useKeyBlockedEntry = nil
   if self.actionList then
     return self:PressKeyInActionList(key)
   end

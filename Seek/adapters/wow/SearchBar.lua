@@ -16,17 +16,24 @@ local QUESTION_MARK_ICON = 134400 -- for an entry without an icon
 local LIST_ROW_HEIGHT = 20
 local LIST_PADDING = 8 -- between the action list's border and its rows
 local LIST_MIN_WIDTH = 140
-local LIST_SIGN_GAP = 12 -- between an action's label and its blocked sign or the use key
+local LIST_LABEL_GAP = 12 -- between an action's label and its blocked sign or the use key
 local GOLD = "|cffffd100" -- the matched letters of a name: the color of quest titles
 local TOOLTIP_GAP = 4 -- between the window's edge and the tooltip
 local FADED_ALPHA = 0.5 -- the icon, name, and kind of a faded result
 
 -- The use key: Cmd+Enter on a Mac, Ctrl+Enter on Windows, each also with
--- the number pad's Enter (see "Keys for use actions" below), and its label
--- in the action list.
-local IS_MAC = IsMacClient()
-local USE_KEY_CHORDS = IS_MAC and { "META-ENTER", "META-NUMPADENTER" } or { "CTRL-ENTER", "CTRL-NUMPADENTER" }
-local USE_KEY_LABEL = IS_MAC and L.USE_KEY_MAC or L.USE_KEY_WINDOWS
+-- the number pad's Enter (see "Keys for use actions" below). For this
+-- platform: its key chords, its label in the action list, and whether its
+-- modifier (Cmd or Ctrl) is held.
+local USE_KEY = IsMacClient() and {
+  chords = { "META-ENTER", "META-NUMPADENTER" },
+  label = L.USE_KEY_MAC,
+  ModifierDown = IsMetaKeyDown,
+} or {
+  chords = { "CTRL-ENTER", "CTRL-NUMPADENTER" },
+  label = L.USE_KEY_WINDOWS,
+  ModifierDown = IsControlKeyDown,
+}
 
 local Render -- defined below; the session calls it after a change notice
 
@@ -90,10 +97,9 @@ end
 -- result (no actions, such as an item in another character's bags) has a
 -- gray icon and dim text; its row is lit as brightly when selected. After
 -- combat blocked the use key on the selected row, the row shows the
--- "blocked in combat" sign in place of the kind. The core
--- sends as many rows as the visible results setting says; rows are made
--- when more rows than before first need them. Rows do not react to the
--- mouse (yet).
+-- "blocked in combat" sign in place of the kind. The core sends as many
+-- rows as the visible results setting says; rows are made when more rows
+-- than before first need them. Rows do not react to the mouse (yet).
 local rows = {}
 
 local function Row(i)
@@ -163,7 +169,7 @@ local function ListRow(i)
     -- The use key, on the first use action only.
     row.key = row:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
     row.key:SetPoint("RIGHT", row, "RIGHT", -6, 0)
-    row.key:SetText(USE_KEY_LABEL)
+    row.key:SetText(USE_KEY.label)
 
     listRows[i] = row
   end
@@ -198,9 +204,9 @@ local function RenderActionList(view)
     row:Show()
     local rowWidth = row.label:GetStringWidth()
     if action.blocked then
-      rowWidth = rowWidth + LIST_SIGN_GAP + row.sign:GetStringWidth()
+      rowWidth = rowWidth + LIST_LABEL_GAP + row.sign:GetStringWidth()
     elseif action.useKey then
-      rowWidth = rowWidth + LIST_SIGN_GAP + row.key:GetStringWidth()
+      rowWidth = rowWidth + LIST_LABEL_GAP + row.key:GetStringWidth()
     end
     width = math.max(width, math.ceil(rowWidth) + 12 + 2 * LIST_PADDING)
   end
@@ -383,13 +389,14 @@ keys:EnableKeyboard(false)
 
 local listKeys = false -- `keys` has the keyboard
 
--- Which keys click the secure button now: "enter" (Enter, in the action
--- list), "useKey" (the use key, on the results), or nil.
-local bound = nil
-local BOUND_CHORDS = {
-  enter = { "ENTER", "NUMPADENTER" },
-  useKey = USE_KEY_CHORDS,
-}
+-- The key bindings that click the secure button: Enter, in the action
+-- list, and the use key, on the results. Each has its key chords and the
+-- key that the core gets once the button has run (ns.OnUseButtonClicked).
+local ENTER_BINDING = { chords = { "ENTER", "NUMPADENTER" }, coreKey = "ENTER" }
+local USE_KEY_BINDING = { chords = USE_KEY.chords, coreKey = "USE" }
+
+-- The key binding that is set now: ENTER_BINDING, USE_KEY_BINDING, or nil.
+local buttonBinding = nil
 
 -- True from PLAYER_REGEN_DISABLED to PLAYER_REGEN_ENABLED. The lockdown
 -- itself starts just after the first and ends just before the second; Seek
@@ -398,28 +405,26 @@ local inCombat = InCombatLockdown()
 
 -- Whether a key chord (such as "META-ENTER") is the use key.
 local function IsUseKey(chord)
-  return tContains(USE_KEY_CHORDS, chord)
+  return tContains(USE_KEY.chords, chord)
 end
 
--- Whether the use key's modifier is held: Cmd on a Mac, Ctrl on Windows.
-local function UseKeyModifierDown()
-  if IS_MAC then
-    return IsMetaKeyDown()
-  end
-  return IsControlKeyDown()
+-- Whether `binding` is set now and a key chord is one of its keys, so that
+-- the key clicks the secure button.
+local function ClicksButton(binding, chord)
+  return buttonBinding == binding and tContains(binding.chords, chord)
 end
 
--- Binds the keys that `which` names (see `bound`) to a click on the secure
--- button, or clears the bindings for nil. Never in the lockdown.
-local function BindKeys(which)
-  if which == bound or InCombatLockdown() then
+-- Sets a key binding (see buttonBinding) that clicks the secure button, or
+-- clears the bindings for nil. Never in the lockdown.
+local function BindKeys(binding)
+  if binding == buttonBinding or InCombatLockdown() then
     return
   end
   ClearOverrideBindings(keys)
-  for _, chord in ipairs(BOUND_CHORDS[which] or {}) do
+  for _, chord in ipairs(binding and binding.chords or {}) do
     SetOverrideBindingClick(keys, true, chord, ns.USE_BUTTON_NAME, "LeftButton")
   end
-  bound = which
+  buttonBinding = binding
 end
 
 -- The text box keeps every key: none goes on to the key bindings. Never in
@@ -489,15 +494,15 @@ local function RenderKeys(view)
     box:ClearFocus()
     keys:EnableKeyboard(true)
     listKeys = true
-    BindKeys(UseActionReady(SelectedAction(view)) and "enter" or nil)
+    BindKeys(UseActionReady(SelectedAction(view)) and ENTER_BINDING or nil)
   else
     LeaveListKeys(view.open)
     -- With the action list closed, the core prepares the selected result's
     -- first use action, if it has one.
     local useKeyReady = view.open and not view.actionList and outsideCombat and ns.PreparedUseAction() ~= nil
-    BindKeys(useKeyReady and "useKey" or nil)
+    BindKeys(useKeyReady and USE_KEY_BINDING or nil)
   end
-  if bound ~= "useKey" then
+  if buttonBinding ~= USE_KEY_BINDING then
     KeepAllKeys()
   end
 end
@@ -560,7 +565,7 @@ end)
 -- never runs Enter's action: it goes to the secure button through its key
 -- binding, or, in combat, to the core (see PressUseKey).
 box:SetScript("OnEnterPressed", function()
-  if UseKeyModifierDown() then
+  if USE_KEY.ModifierDown() then
     PressUseKey()
   else
     PressEnter()
@@ -581,7 +586,7 @@ end)
 box:SetScript("OnKeyDown", function(self, key)
   local chord = CreateKeyChordStringUsingMetaKeyState(key)
   if not InCombatLockdown() then
-    self:SetPropagateKeyboardInput(bound == "useKey" and IsUseKey(chord))
+    self:SetPropagateKeyboardInput(ClicksButton(USE_KEY_BINDING, chord))
   end
   if GetBindingAction(chord) == "SEEK_TOGGLE" then
     ns.ToggleSearchBar()
@@ -597,7 +602,7 @@ keys:SetScript("OnKeyDown", function(self, key)
     return
   end
   local chord = CreateKeyChordStringUsingMetaKeyState(key)
-  if bound == "enter" and (chord == "ENTER" or chord == "NUMPADENTER") then
+  if ClicksButton(ENTER_BINDING, chord) then
     -- On to the override binding, which clicks the secure button.
     self:SetPropagateKeyboardInput(true)
     return
@@ -620,10 +625,8 @@ end)
 -- Actions.lua): the core runs the key that clicked it, Enter in the action
 -- list or the use key on the results, which closes the bar.
 function ns.OnUseButtonClicked()
-  if bound == "enter" then
-    Render(session:PressKey("ENTER"))
-  elseif bound == "useKey" then
-    Render(session:PressKey("USE"))
+  if buttonBinding then
+    Render(session:PressKey(buttonBinding.coreKey))
   end
 end
 

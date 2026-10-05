@@ -1,6 +1,9 @@
 -- The search session: the state behind the search bar. The search bar window
 -- (a driving adapter) sends it open, close, the query, and key presses, and
 -- shows the view state that each of these returns. See docs/adr/0003.
+--
+-- The combat rule: in combat, every use action is blocked. The action list
+-- marks it, and picking it does nothing. Show actions are never blocked.
 local _, ns = ...
 
 local L = ns.L
@@ -11,9 +14,30 @@ local VISIBLE_ROWS = 8
 local SearchSession = {}
 SearchSession.__index = SearchSession
 
+-- Whether combat blocks `action` now.
+local function Blocked(action)
+  return action.type == "use" and ns.InCombat()
+end
+
+-- The view state after a change. It also tells the action adapter which use
+-- action Enter would run now, so that the adapter can get it ready (see
+-- Actions.lua): the selected action of the open action list, when it is a
+-- use action that combat does not block.
+local function Changed(session)
+  local list = session.actionList
+  local action = list and list.actions[list.selection]
+  if session.isOpen and action and action.type == "use" and not Blocked(action) then
+    ns.PrepareAction(action, list.entry)
+  else
+    ns.PrepareAction(nil)
+  end
+  return session:View()
+end
+
 -- A new session starts closed with an empty query. When a source's entries
--- change while the search bar is open, the session searches again and calls
--- `onViewChanged(view)` (optional), so the window can show the new results.
+-- change, or combat starts or ends, while the search bar is open, the
+-- session updates and calls `onViewChanged(view)` (optional), so the window
+-- can show the new results and the blocked actions.
 function ns.NewSearchSession(onViewChanged)
   local session = setmetatable({
     isOpen = false,
@@ -25,12 +49,21 @@ function ns.NewSearchSession(onViewChanged)
     -- that result's actions, and the selected action's position.
     actionList = nil,
   }, SearchSession)
+  local function Update()
+    local view = Changed(session)
+    if onViewChanged then
+      onViewChanged(view)
+    end
+  end
   ns.WatchEntries(function()
     if session.isOpen then
       session:Search(true)
-      if onViewChanged then
-        onViewChanged(session:View())
-      end
+      Update()
+    end
+  end)
+  ns.WatchCombat(function()
+    if session.isOpen then
+      Update()
     end
   end)
   return session
@@ -136,8 +169,9 @@ end
 --   total      how many results there are in all
 --   actionList the open action list, else nil. It belongs to the selected
 --              result. `rows` holds the actions, top to bottom; each has
---              id, label, type ("show" or "use"), and selected (true on
---              one row)
+--              id, label, type ("show" or "use"), selected (true on one
+--              row), and blocked (true when combat blocks the action: the
+--              row shows the "blocked in combat" sign)
 function SearchSession:View()
   local rows = {}
   for i = self.scroll + 1, math.min(self.scroll + VISIBLE_ROWS, #self.results) do
@@ -159,6 +193,7 @@ function SearchSession:View()
         label = action.label,
         type = action.type,
         selected = i == self.actionList.selection,
+        blocked = Blocked(action),
       }
     end
     actionList = { rows = actionRows }
@@ -180,20 +215,20 @@ function SearchSession:Open()
   self.isOpen = true
   self.query = ""
   self:Search()
-  return self:View()
+  return Changed(self)
 end
 
 function SearchSession:Close()
   self.isOpen = false
   self.actionList = nil
-  return self:View()
+  return Changed(self)
 end
 
 -- The player changed the text in the search bar's text box.
 function SearchSession:SetQuery(query)
   self.query = query
   self:Search()
-  return self:View()
+  return Changed(self)
 end
 
 -- Opens a closed session and closes an open one (the key binding, /seek).
@@ -205,11 +240,12 @@ function SearchSession:Toggle()
 end
 
 -- Runs the selected result's main action and closes the search bar, so the
--- player sees what the action shows. With no results, nothing happens.
+-- player sees what the action shows. With no results, or when the result's
+-- kind has no main action, nothing happens.
 function SearchSession:RunMainAction()
   local entry = self.results[self.selection]
-  if not entry then
-    return self:View()
+  if not entry or not ns.MainAction(entry) then
+    return Changed(self)
   end
   self:Close()
   ns.RunAction(ns.MainAction(entry), entry)
@@ -232,11 +268,16 @@ function SearchSession:MoveInActionList(step)
 end
 
 -- Runs the action list's selected action and closes the search bar, as the
--- main action does.
+-- main action does. A blocked action does nothing, and the search bar stays
+-- open, so the player sees the sign.
 function SearchSession:RunListAction()
   local list = self.actionList
+  local action = list.actions[list.selection]
+  if Blocked(action) then
+    return Changed(self)
+  end
   self:Close()
-  ns.RunAction(list.actions[list.selection], list.entry)
+  ns.RunAction(action, list.entry)
   return self:View()
 end
 
@@ -252,7 +293,7 @@ function SearchSession:PressKeyInActionList(key)
   elseif key == "DOWN" then
     self:MoveInActionList(1)
   end
-  return self:View()
+  return Changed(self)
 end
 
 -- A key press in the search bar. `key` is the WoW key name, such as "ESCAPE"
@@ -274,5 +315,5 @@ function SearchSession:PressKey(key)
   elseif key == "DOWN" then
     self:MoveSelection(1)
   end
-  return self:View()
+  return Changed(self)
 end

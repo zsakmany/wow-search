@@ -19,9 +19,14 @@ ns.L = {
 
   -- The actions' names, as the action list shows them
   ACTION_SHOW_IN_BAG = "Show in bag",
-  ACTION_SHOW_IN_SPELLBOOK = "Show in spellbook",
   ACTION_SHOW_IN_QUEST_LOG = "Show in quest log",
   ACTION_SHOW_ON_MAP = "Show on map",
+  ACTION_USE = "Use",
+  ACTION_CAST = "Cast",
+
+  -- The sign on a use action in the action list while the player is in
+  -- combat, when WoW does not let Seek run it
+  BLOCKED_IN_COMBAT = "Blocked in combat",
 
   -- The key binding in the game's Keybindings menu
   BINDING_TOGGLE = "Open or close the search bar",

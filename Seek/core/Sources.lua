@@ -14,8 +14,11 @@
 --   longText  plain text that the query matches at word starts, such as an
 --             item's tooltip text (optional; no color codes or links: Seek
 --             keeps it in the saved copy)
+--   usable  (items) true when the player can use the item, such as a
+--           Hearthstone; only then does it get the "use" action (Kinds.lua)
 -- Seek rejects (leaves out) an entry with no name or an unknown kind, and
--- leaves out long text that is not a string.
+-- leaves out long text that is not a string. Any `usable` other than true
+-- counts as false.
 --
 -- When its data changes, a source calls NotifyChanged(id). Seek then reads
 -- it again and replaces all of its old entries.
@@ -73,6 +76,7 @@ local function Accept(entry)
     gameID = entry.gameID,
     owner = entry.owner,
     longText = type(entry.longText) == "string" and entry.longText or nil,
+    usable = entry.usable == true or nil,
   }
 end
 
@@ -85,6 +89,7 @@ local function Prepare(copy)
     icon = copy.icon,
     gameID = copy.gameID,
     owner = copy.owner,
+    usable = copy.usable,
     match = ns.PrepareName(copy.name),
     longTextMatch = copy.longText and ns.PrepareLongText(copy.longText),
     sortName = copy.name:lower(),

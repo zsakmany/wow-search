@@ -2,7 +2,9 @@
 -- close, the query, and key presses to the core's search session, and shows
 -- the view state that comes back. It keeps no search state of its own.
 --
--- A plain (not protected) frame, so it can open and close in combat.
+-- A plain (not protected) frame, so it can open and close in combat. It has
+-- no protected children: the secure button for use actions is not part of
+-- it (adapters/wow/Actions.lua).
 local _, ns = ...
 
 local L = ns.L
@@ -14,6 +16,7 @@ local QUESTION_MARK_ICON = 134400 -- for an entry without an icon
 local LIST_ROW_HEIGHT = 20
 local LIST_PADDING = 8 -- between the action list's border and its rows
 local LIST_MIN_WIDTH = 140
+local LIST_SIGN_GAP = 12 -- between an action's label and its blocked sign
 
 local Render -- defined below; the session calls it after a change notice
 
@@ -105,13 +108,19 @@ local function ListRow(i)
     row.label:SetJustifyH("LEFT")
     row.label:SetWordWrap(false)
 
+    -- The "blocked in combat" sign, on a blocked action only.
+    row.sign = row:CreateFontString(nil, "ARTWORK", "GameFontRedSmall")
+    row.sign:SetPoint("RIGHT", row, "RIGHT", -6, 0)
+    row.sign:SetText(L.BLOCKED_IN_COMBAT)
+
     listRows[i] = row
   end
   return row
 end
 
 -- Shows the action list next to the selected result row, or hides it. The
--- list is as wide as its longest label.
+-- list is as wide as its longest label and sign. A blocked action is grayed
+-- and shows the "blocked in combat" sign.
 local function RenderActionList(view)
   local anchor
   for i, result in ipairs(view.results) do
@@ -129,9 +138,15 @@ local function RenderActionList(view)
   for i, action in ipairs(actions) do
     local row = ListRow(i)
     row.label:SetText(action.label)
+    row.label:SetFontObject(action.blocked and "GameFontDisable" or "GameFontHighlight")
+    row.sign:SetShown(action.blocked)
     row.selection:SetShown(action.selected)
     row:Show()
-    width = math.max(width, math.ceil(row.label:GetStringWidth()) + 12 + 2 * LIST_PADDING)
+    local rowWidth = row.label:GetStringWidth()
+    if action.blocked then
+      rowWidth = rowWidth + LIST_SIGN_GAP + row.sign:GetStringWidth()
+    end
+    width = math.max(width, math.ceil(rowWidth) + 12 + 2 * LIST_PADDING)
   end
   for i = #actions + 1, #listRows do
     listRows[i]:Hide()
@@ -178,9 +193,113 @@ local function RenderContent(view)
   RenderActionList(view)
 end
 
+-- List keys: how Enter reaches the secure button for use actions.
+--
+-- While the text box has keyboard focus, no key binding fires, and a use
+-- action needs a key binding: WoW runs it only from a real key press on a
+-- secure button (adapters/wow/Actions.lua). So while the action list is
+-- open outside combat, the text box gives up the focus, and the list takes
+-- the keyboard with `keys`, a plain keyboard-enabled frame:
+--   - Up, Down, Tab, and Escape go to the core, as from the text box. The
+--     Seek key closes the bar. Every other key is swallowed, so that it does
+--     not move the character or press an action bar button.
+--   - Enter on a use action that the action adapter has prepared goes on to
+--     the key bindings, where a priority override binding (owned by `keys`)
+--     clicks the secure button. Its PostClick then sends Enter to the core.
+--     Enter on any other action goes to the core.
+-- When the list closes, or combat starts, the bindings are cleared and the
+-- text box gets the focus back (unless the bar closed).
+--
+-- Combat: override bindings and keyboard propagation cannot change in
+-- combat, so a binding left behind would keep the player's Enter until
+-- combat ends. Seek sets them only outside the lockdown, and clears them on
+-- PLAYER_REGEN_DISABLED, which comes just before the lockdown starts. In
+-- combat, the list works from the text box, as without use actions, and
+-- the core shows use actions as blocked.
+local keys = CreateFrame("Frame", nil, frame)
+keys:SetAllPoints()
+keys:EnableKeyboard(false)
+
+local listKeys = false -- `keys` has the keyboard
+local enterBound = false -- Enter clicks the secure button
+
+-- True from PLAYER_REGEN_DISABLED to PLAYER_REGEN_ENABLED. The lockdown
+-- itself starts just after the first and ends just before the second; Seek
+-- leaves the list keys at the first.
+local inCombat = InCombatLockdown()
+
+-- Binds Enter (and the number pad's Enter) to a click on the secure button,
+-- or clears that. Never in the lockdown.
+local function BindEnter(bind)
+  if bind == enterBound or InCombatLockdown() then
+    return
+  end
+  if bind then
+    SetOverrideBindingClick(keys, true, "ENTER", ns.USE_BUTTON_NAME, "LeftButton")
+    SetOverrideBindingClick(keys, true, "NUMPADENTER", ns.USE_BUTTON_NAME, "LeftButton")
+  else
+    ClearOverrideBindings(keys)
+  end
+  enterBound = bind
+end
+
+-- Gives the keyboard back from the list keys. `focus` gives the focus back
+-- to the text box. EnableKeyboard works in combat on a plain frame.
+local function LeaveListKeys(focus)
+  BindEnter(false)
+  keys:EnableKeyboard(false)
+  if listKeys and focus then
+    box:SetFocus()
+  end
+  listKeys = false
+end
+
+-- The selected row of the action list in a view, or nil.
+local function SelectedAction(view)
+  for _, action in ipairs(view.actionList and view.actionList.rows or {}) do
+    if action.selected then
+      return action
+    end
+  end
+end
+
+-- Whether Enter would click the secure button: the selected action is a use
+-- action that combat does not block and that the action adapter has
+-- prepared.
+local function UseActionReady(action)
+  return action ~= nil and action.type == "use" and not action.blocked
+    and ns.PreparedUseAction() == action.id
+end
+
+-- Enter, from the text box or the list keys, when it does not click the
+-- secure button. A use action that combat does not block runs only through
+-- that button (a blocked one goes to the core, which does nothing): from
+-- here, the core would close the bar and nothing would run, so Enter does
+-- nothing.
+local function PressEnter()
+  local action = SelectedAction(session:View())
+  if action and action.type == "use" and not action.blocked then
+    return
+  end
+  Render(session:PressKey("ENTER"))
+end
+
+-- Takes or gives back the keyboard for the action list, as the view says.
+local function RenderKeys(view)
+  if view.open and view.actionList and not inCombat and not InCombatLockdown() then
+    box:ClearFocus()
+    keys:EnableKeyboard(true)
+    listKeys = true
+    BindEnter(UseActionReady(SelectedAction(view)))
+  else
+    LeaveListKeys(view.open)
+  end
+end
+
 -- Shows a view state from the core.
 function Render(view)
   RenderContent(view)
+  RenderKeys(view)
   if view.open then
     if not frame:IsShown() then
       frame:Show()
@@ -188,7 +307,7 @@ function Render(view)
       -- example Cmd+K) also sends its letter, and with focus now, that "k"
       -- would land in the text box.
       C_Timer.After(0, function()
-        if frame:IsShown() then
+        if frame:IsShown() and not listKeys then
           box:SetFocus()
         end
       end)
@@ -226,11 +345,12 @@ box:SetScript("OnArrowPressed", function(_, key)
 end)
 
 -- Enter runs the selected result's main action, or the selected action
--- when the action list is open, and closes the bar; with no results it does
--- nothing. The core decides; the handler also keeps the text box from
--- losing focus on its own.
+-- when the action list is open, and closes the bar; with no results, or on
+-- a blocked action, it does nothing. The core decides (see PressEnter for
+-- use actions); the handler also keeps the text box from losing focus on
+-- its own.
 box:SetScript("OnEnterPressed", function()
-  Render(session:PressKey("ENTER"))
+  PressEnter()
 end)
 
 -- Tab opens the selected result's action list; with no results it does
@@ -245,6 +365,58 @@ end)
 box:SetScript("OnKeyDown", function(_, key)
   if GetBindingAction(CreateKeyChordStringUsingMetaKeyState(key)) == "SEEK_TOGGLE" then
     ns.ToggleSearchBar()
+  end
+end)
+
+-- A key press while the list keys have the keyboard (see above).
+keys:SetScript("OnKeyDown", function(self, key)
+  if InCombatLockdown() then
+    -- Does not happen: Seek leaves the list keys before the lockdown. If it
+    -- does, give the keyboard back; propagation cannot change in combat.
+    LeaveListKeys(true)
+    return
+  end
+  local chord = CreateKeyChordStringUsingMetaKeyState(key)
+  if enterBound and (chord == "ENTER" or chord == "NUMPADENTER") then
+    -- On to the override binding, which clicks the secure button.
+    self:SetPropagateKeyboardInput(true)
+    return
+  end
+  self:SetPropagateKeyboardInput(false)
+  if GetBindingAction(chord) == "SEEK_TOGGLE" then
+    ns.ToggleSearchBar()
+    return
+  end
+  if key == "ENTER" or key == "NUMPADENTER" then
+    PressEnter()
+  elseif key == "ESCAPE" or key == "TAB" or key == "UP" or key == "DOWN" then
+    Render(session:PressKey(key))
+  end
+end)
+
+-- The secure button has run the prepared use action (adapters/wow/
+-- Actions.lua): the core runs Enter, which closes the bar.
+function ns.OnUseButtonClicked()
+  if enterBound then
+    Render(session:PressKey("ENTER"))
+  end
+end
+
+-- Leave the list keys at the last moment before the lockdown, and take them
+-- again after combat (the core also updates the view on both: the blocked
+-- signs).
+local combatEvents = CreateFrame("Frame")
+combatEvents:RegisterEvent("PLAYER_REGEN_DISABLED")
+combatEvents:RegisterEvent("PLAYER_REGEN_ENABLED")
+combatEvents:SetScript("OnEvent", function(_, event)
+  if event == "PLAYER_REGEN_DISABLED" then
+    inCombat = true
+    LeaveListKeys(frame:IsShown())
+  else
+    inCombat = false
+    if frame:IsShown() then
+      Render(session:View())
+    end
   end
 end)
 

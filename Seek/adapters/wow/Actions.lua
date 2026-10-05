@@ -1,8 +1,10 @@
 -- The WoW action adapter: runs the actions that the core asks for through
 -- the Actions port (core/Actions.lua). Show actions only change what the
--- player sees, so they also work in combat; the exceptions are the
--- spellbook, the quest log, and the world map, which WoW does not let addons
--- open in combat.
+-- player sees, so they also work in combat; the exceptions are the quest
+-- log and the world map, which WoW does not let addons open in combat.
+-- There is no "show in spellbook": opening the spellbook from addon code
+-- taints it (issue #29). Use actions run through a secure button (see below); the
+-- core blocks them in combat.
 --
 -- Show in bag works with the default Blizzard bags. With a bag addon that
 -- replaces them (such as Bagnon), the bag addon's own window opens if it
@@ -111,31 +113,6 @@ local function ShowInBag(entry)
   end
 end
 
--- Opens the spellbook at the spell, with Blizzard's own helper for this
--- (Blizzard_FrameXMLUtil, PlayerSpellsUtil.lua). It loads the spellbook (a
--- load-on-demand addon) when it is not loaded yet, opens it, and turns to
--- the page that holds the spell.
---
--- Taint (not tested in the game yet): this runs Blizzard's spellbook code
--- from addon code. The spellbook's spell buttons cast with a protected call,
--- and what Blizzard's code writes while Seek's call runs (the tab, the page,
--- each shown spell's slot) counts as Seek's. A click that casts from such a
--- page may then be blocked, as in issue #27 with the bags. No taint-free way
--- to turn to a spell exists for addon code; Seek keeps the risk small: it
--- calls only this one helper, writes nothing into Blizzard's tables, and
--- does not open flyouts (they share buttons with the action bars).
---
--- Not in combat: WoW lets only Blizzard's code open a window such as the
--- spellbook in combat (ShowUIPanel shows an "action blocked" message for
--- addon code). So in combat this action does nothing.
-local function ShowInSpellbook(entry)
-  if InCombatLockdown() or not PlayerSpellsUtil then
-    return
-  end
-  local knownSpellsOnly, toggleFlyout = true, false
-  PlayerSpellsUtil.OpenToSpellBookTabAtSpell(entry.gameID, knownSpellsOnly, toggleFlyout)
-end
-
 -- Opens the quest log (the side panel of the world map on Forever) at the
 -- quest's details, through the function that Blizzard's own objective
 -- tracker calls when the player clicks a quest there.
@@ -194,12 +171,108 @@ local function ShowOnMap(entry)
   EventRegistry:TriggerEvent("MapCanvas.PingQuestID", entry.gameID)
 end
 
+-- Use actions ("use" on an item, "cast" on a spell) go through a secure
+-- action button (SecureActionButtonTemplate, Blizzard_FrameXML/
+-- SecureTemplates.lua). WoW runs a use action only from Blizzard's secure
+-- code, started by a real key press or click; addon code that calls
+-- UseItemByName or CastSpellByID itself is blocked. So:
+--   1. Prepare (below): when the core says which use action the next key
+--      press would run, Seek sets the button's attributes. Attributes of a
+--      secure button can only change outside combat; the core prepares
+--      nothing in combat, and Prepare checks the lockdown too.
+--   2. The search bar binds Enter to a click on this button while that use
+--      action is selected in the action list (adapters/wow/SearchBar.lua).
+--      The player's Enter is the real key press.
+--   3. The button's own secure OnClick runs the action. Then its PostClick
+--      tells the search bar, which sends Enter to the core, and the core asks
+--      Run for the use action. Run has nothing left to do then.
+--
+-- The button is not a child of the search bar: a protected child would make
+-- the search bar protected too, and it could no longer open and close in
+-- combat. It is hidden; a key binding clicks it all the same.
+local USE_BUTTON_NAME = "SeekUseButton"
+
+local useButton = CreateFrame("Button", USE_BUTTON_NAME, UIParent, "SecureActionButtonTemplate")
+
+local setUp = false -- the button's fixed settings are made
+local requested -- the use action that the core asked for last ({ id, entry }), or nil
+local preparedID -- the use action that the button's attributes are set to, or nil
+
+-- Sets the button's attributes for the requested use action, or clears them
+-- when there is none. Only outside combat; in combat nothing changes, and
+-- the button counts as not prepared.
+local function Apply()
+  if not setUp or InCombatLockdown() then
+    preparedID = nil
+    return
+  end
+  local actionType, item, spell
+  if requested and requested.id == "useItem" then
+    actionType, item = "item", "item:" .. requested.entry.gameID
+  elseif requested and requested.id == "castSpell" then
+    actionType, spell = "spell", requested.entry.gameID
+  end
+  useButton:SetAttribute("type", actionType)
+  useButton:SetAttribute("item", item)
+  useButton:SetAttribute("spell", spell)
+  preparedID = actionType and requested.id or nil
+end
+
+-- The button's fixed settings, once, outside combat (a /reload in combat
+-- waits for its end, and then prepares what the core asked for meanwhile).
+-- Hidden, and only a key binding clicks it. It acts on the key's down
+-- press, whatever the player's "cast on key down" setting is:
+-- SecureActionButton_OnClick reads the "useOnKeyDown" attribute before
+-- that setting. It gets no up click, so the action never runs twice.
+local function SetUp()
+  if setUp or InCombatLockdown() then
+    return
+  end
+  useButton:Hide()
+  useButton:RegisterForClicks("AnyDown")
+  useButton:SetAttribute("useOnKeyDown", true)
+  useButton:SetScript("PostClick", function(_, _, down)
+    if down and preparedID and ns.OnUseButtonClicked then
+      ns.OnUseButtonClicked()
+    end
+  end)
+  setUp = true
+  Apply()
+end
+
+SetUp()
+if not setUp then
+  local events = CreateFrame("Frame")
+  events:RegisterEvent("PLAYER_REGEN_ENABLED")
+  events:SetScript("OnEvent", function(self)
+    SetUp()
+    if setUp then
+      self:UnregisterEvent("PLAYER_REGEN_ENABLED")
+    end
+  end)
+end
+
+-- The secure button's global name, for a key binding that clicks it.
+ns.USE_BUTTON_NAME = USE_BUTTON_NAME
+
+-- The use action that the secure button runs on its next click, or nil.
+function ns.PreparedUseAction()
+  if InCombatLockdown() then
+    return nil
+  end
+  return preparedID
+end
+
+-- The key press on the secure button has already run the use action.
+local function AlreadyRun() end
+
 -- Each action id from the kind registry (core/Kinds.lua) and how to run it.
 local run = {
   showInBag = ShowInBag,
-  showInSpellbook = ShowInSpellbook,
   openQuestLog = OpenQuestLog,
   showOnMap = ShowOnMap,
+  useItem = AlreadyRun,
+  castSpell = AlreadyRun,
 }
 
 ns.SetActionAdapter({
@@ -209,5 +282,9 @@ ns.SetActionAdapter({
       error("Seek: the WoW action adapter cannot run the action " .. tostring(actionID))
     end
     action(entry)
+  end,
+  Prepare = function(_, actionID, entry)
+    requested = actionID and { id = actionID, entry = entry } or nil
+    Apply()
   end,
 })

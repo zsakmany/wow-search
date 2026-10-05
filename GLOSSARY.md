@@ -53,7 +53,7 @@ An action that makes the character do the thing, such as casting the spell or us
 _Avoid_: Do, activate, execute, cast
 
 **Main action**:
-The one action a result runs when the player presses Enter. It is always a show action.
+The one action a result runs when the player presses Enter. It is always a show action; a result with no show action has no main action.
 _Avoid_: Default action, primary action
 
 **Action list**:

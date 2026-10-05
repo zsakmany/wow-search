@@ -39,6 +39,20 @@ local function TooltipText(bag, slot)
   return ns.LongText(pieces)
 end
 
+-- Whether the item gets the "use" action: it has a "Use:" spell (a
+-- Hearthstone, a potion, food, a quest item that is used), and it is not
+-- something to wear. C_Item.GetItemSpell tells the first from the item's
+-- data alone, so the answer does not change with mana, cooldowns, or
+-- combat, and can go into the saved copy; C_Item.IsUsableItem would answer
+-- "can it be used right now", which changes. Seek's use action uses the
+-- secure "item" action, which equips an item that can be worn instead of
+-- using it, so those items get no use action (a trinket with a "Use:"
+-- effect, for example). Ore, cloth, and other items without a "Use:" spell
+-- get none either.
+local function Usable(itemID)
+  return C_Item.GetItemSpell(itemID) ~= nil and not C_Item.IsEquippableItem(itemID)
+end
+
 -- An item whose data is not loaded yet has no name, and its tooltip text
 -- can be incomplete. Leave it out for now, and send a change notice when the
 -- game has loaded it. (Many items can load in one frame; Seek reads the bags
@@ -61,6 +75,7 @@ local function GetEntries()
             gameID = itemID,
             owner = owner,
             longText = TooltipText(bag, slot),
+            usable = Usable(itemID),
           }
         elseif not loading[itemID] then
           loading[itemID] = true

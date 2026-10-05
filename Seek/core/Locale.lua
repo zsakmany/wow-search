@@ -24,4 +24,7 @@ ns.L = {
 
   -- The key binding in the game's Keybindings menu
   BINDING_TOGGLE = "Open or close the search bar",
+
+  -- In chat, once, after Seek has set its suggested key; %s is the key
+  SUGGESTED_KEY_SET = "Seek: press %s to open the search bar. You can change the key in the Keybindings menu.",
 }

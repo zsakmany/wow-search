@@ -23,6 +23,12 @@ files["Seek/adapters/wow/"] = {
     "SLASH_SEEK1",
     -- The saved copy of the entries, per character (the TOC's saved variable)
     "SeekSavedCopy",
+    -- The binding sets that got the suggested key, account-wide (the TOC's
+    -- saved variable)
+    "SeekSuggestedKey",
+    -- The function that the addon button at the minimap calls (the TOC's
+    -- AddonCompartmentFunc)
+    "Seek_OnAddonCompartmentClick",
   },
 }
 

@@ -1,7 +1,10 @@
 ## Interface: 16001
 ## Title: Seek
 ## Notes: A search bar for your bags, spells, and quests.
+## SavedVariables: SeekSuggestedKey
 ## SavedVariablesPerCharacter: SeekSavedCopy
+## AddonCompartmentFunc: Seek_OnAddonCompartmentClick
+## IconAtlas: common-search-magnifyingglass
 
 # Core: plain Lua 5.1 that never touches the WoW API (docs/adr/0003-hexagonal-core.md).
 core\Locale.lua
@@ -24,6 +27,7 @@ adapters\wow\Scheduler.lua
 adapters\wow\Actions.lua
 adapters\wow\SearchBar.lua
 adapters\wow\Opening.lua
+adapters\wow\SuggestedKey.lua
 adapters\wow\BagSource.lua
 adapters\wow\SpellSource.lua
 adapters\wow\QuestSource.lua

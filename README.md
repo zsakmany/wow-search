@@ -29,7 +29,7 @@ WoW then reads the addon straight from this project: change the code, type `/rel
 make link WOW_ADDONS="/Applications/World of Warcraft/_forever_/Interface/AddOns"
 ```
 
-In the game, `/seek` opens and closes the search bar. A key for it can be set in the game's Keybindings menu, in the Seek section.
+In the game, `/seek` opens and closes the search bar, and so does the Seek entry in the addon button at the minimap. On the first login, Seek sets Cmd+K (Mac) or Ctrl+K (Windows) as its key, if that key is free. The key can be changed in the game's Keybindings menu, in the Seek section.
 
 `make link` never replaces an existing `Seek` folder. To undo the link, delete the `Seek` link in the AddOns folder.
 

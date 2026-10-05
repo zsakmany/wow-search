@@ -3,7 +3,8 @@
      inside a shared section, the game shows a header as an empty spacer line.
      The label is set in adapters/wow/Opening.lua.
      WoW loads this file on its own; it is not listed in the TOC.
-     No default key yet. -->
+     No default key here: adapters/wow/SuggestedKey.lua sets the suggested
+     key once, on the first login, only if that key is free. -->
 <Bindings>
   <Binding name="SEEK_TOGGLE" category="Seek">
     Seek_ToggleSearchBar()

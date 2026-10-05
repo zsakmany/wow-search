@@ -39,6 +39,13 @@ ns.L = {
   SETTING_VISIBLE_RESULTS = "Visible results",
   SETTING_VISIBLE_RESULTS_TOOLTIP = "How many results the search bar shows at once, and how many recently "
     .. "picked things it shows while the query is empty.",
+  SETTING_TOOLTIP_SIDE = "Tooltip side",
+  SETTING_TOOLTIP_SIDE_TOOLTIP = "Where the search bar shows the game's tooltip of the result under the "
+    .. "mouse, or else of the selected result. On the right, the tooltip hides while the action list "
+    .. "is open.",
+  SETTING_TOOLTIP_SIDE_RIGHT = "Right",
+  SETTING_TOOLTIP_SIDE_LEFT = "Left",
+  SETTING_TOOLTIP_SIDE_OFF = "Off",
 
   -- In chat, once, after Seek has set its suggested key; %s is the key
   SUGGESTED_KEY_SET = "Seek: press %s to open the search bar. You can change the key in the Keybindings menu.",

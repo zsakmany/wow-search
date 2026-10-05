@@ -36,14 +36,28 @@ local SAVED_VERSION = 1
 local SettingsStore = {}
 SettingsStore.__index = SettingsStore
 
+-- Whether `value` is one of a choice setting's values.
+local function IsChoice(definition, value)
+  for _, choice in ipairs(definition.values) do
+    if value == choice then
+      return true
+    end
+  end
+  return false
+end
+
 -- A setting's value as the store keeps it, or nil when `value` does not fit
--- the setting's definition: another type than the default's, or a number
--- that is not whole or is outside the lowest and highest value.
+-- the setting's definition: another type than the default's, a number that
+-- is not whole or is outside the lowest and highest value, or not one of a
+-- choice setting's values.
 local function Valid(definition, value)
   if type(value) ~= type(definition.default) then
     return nil
   end
   if type(value) == "number" and (value % 1 ~= 0 or value < definition.min or value > definition.max) then
+    return nil
+  end
+  if definition.values and not IsChoice(definition, value) then
     return nil
   end
   return value
@@ -84,7 +98,8 @@ end
 
 -- A new store.
 --   definitions  each setting by name: its default, and for a number its
---                lowest and highest value (ns.settings)
+--                lowest and highest value, or for a choice its values
+--                (ns.settings)
 --   saved        the saved data as the last store saved it: { account,
 --                character } (each nil when there is none)
 --   onChanged    called as onChanged(name) each time a setting's value

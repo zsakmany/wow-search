@@ -8,8 +8,15 @@ local load_core = require("tests.load_core")
 
 -- The settings as an older and a later version of Seek define them: the
 -- later version has a new default.
-local DEFINITIONS = { visibleResults = { default = 8, min = 3, max = 15 } }
-local LATER_DEFINITIONS = { visibleResults = { default = 10, min = 3, max = 15 } }
+local SIDES = { "right", "left", "off" }
+local DEFINITIONS = {
+  visibleResults = { default = 8, min = 3, max = 15 },
+  tooltipSide = { default = "right", values = SIDES },
+}
+local LATER_DEFINITIONS = {
+  visibleResults = { default = 10, min = 3, max = 15 },
+  tooltipSide = { default = "left", values = SIDES },
+}
 
 describe("the settings store", function()
   local ns, changes
@@ -67,6 +74,16 @@ describe("the settings store", function()
       assert.are.equal(12, NewStore(store:Saved(), LATER_DEFINITIONS):Get("visibleResults"))
     end)
 
+    it("saves a choice only when the player changed it, and follows a changed default", function()
+      local store = NewStore()
+      store:Set("tooltipSide", "off")
+      assert.are.same({ tooltipSide = "off" }, store:Saved().account.values)
+      assert.are.equal("off", NewStore(store:Saved(), LATER_DEFINITIONS):Get("tooltipSide"))
+      store:Set("tooltipSide", "right")
+      assert.are.same({}, store:Saved().account.values)
+      assert.are.equal("left", NewStore(store:Saved(), LATER_DEFINITIONS):Get("tooltipSide"))
+    end)
+
     it("tells about a change only when the value changes", function()
       local store = NewStore()
       store:Set("visibleResults", 12)
@@ -101,6 +118,16 @@ describe("the settings store", function()
       assert.are.same({}, store:Saved().account.values)
       assert.are.equal(8, NewStore({ account = { version = 1, values = { visibleResults = 10.5 } } })
         :Get("visibleResults"))
+    end)
+
+    it("ignores a choice that is not one of the setting's values", function()
+      local store = NewStore()
+      store:Set("tooltipSide", "left")
+      store:Set("tooltipSide", "top")
+      assert.are.equal("left", store:Get("tooltipSide"))
+      assert.are.same({ "tooltipSide" }, changes)
+      local saved = { account = { version = 1, values = { tooltipSide = "top" } } }
+      assert.are.equal("right", NewStore(saved):Get("tooltipSide"))
     end)
 
     it("ignores saved settings of an unknown version", function()

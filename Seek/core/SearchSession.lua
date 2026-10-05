@@ -1,6 +1,7 @@
 -- The search session: the state behind the search bar. The search bar window
--- (a driving adapter) sends it open, close, the query, and key presses, and
--- shows the view state that each of these returns. See docs/adr/0003.
+-- (a driving adapter) sends it open, close, the query, key presses, and the
+-- result row under the mouse, and shows the view state that each of these
+-- returns. See docs/adr/0003.
 --
 -- The combat rule: in combat, every use action is blocked. The action list
 -- marks it, and picking it does nothing. Show actions are never blocked.
@@ -40,8 +41,8 @@ end
 -- A new session starts closed with an empty query. When a source's entries
 -- change, combat starts or ends, or a setting changes, while the search bar
 -- is open, the session updates and calls `onViewChanged(view)` (optional),
--- so the window can show the new results, the blocked actions, and the new
--- number of rows.
+-- so the window can show the new results, the blocked actions, the new
+-- number of rows, and the tooltip on its new side.
 function ns.NewSearchSession(onViewChanged)
   local session = setmetatable({
     isOpen = false,
@@ -55,6 +56,9 @@ function ns.NewSearchSession(onViewChanged)
     -- The open action list, or nil: the result it belongs to (`entry`),
     -- that result's actions, and the selected action's position.
     actionList = nil,
+    -- The position of the visible result row under the mouse, top to
+    -- bottom, or nil.
+    hovered = nil,
   }, SearchSession)
   local function Update()
     local view = Changed(session)
@@ -62,9 +66,9 @@ function ns.NewSearchSession(onViewChanged)
       onViewChanged(view)
     end
   end
-  -- New entries, or a changed setting (the number of visible results),
-  -- take effect at once: search again, and keep the selected result in
-  -- view.
+  -- New entries, or a changed setting (the number of visible results, the
+  -- tooltip side), take effect at once: search again, and keep the
+  -- selected result in view.
   local function SearchAgain()
     if session.isOpen then
       session:Search(true)
@@ -177,6 +181,24 @@ function SearchSession:MoveSelection(step)
   self.scroll = math.max(0, math.min(self.scroll, count - visible))
 end
 
+-- Which visible row shows its tooltip, and on which side (the tooltip side
+-- setting), or nil for no tooltip: the row under the mouse, else the
+-- selected row. None while the search bar is closed, with no results, with
+-- the setting off, or while the action list is open on the right side,
+-- where the list shows too.
+local function Tooltip(session, rows)
+  local side = ns.Setting("tooltipSide")
+  if not session.isOpen or #rows == 0 or side == "off"
+    or (side == "right" and session.actionList) then
+    return nil
+  end
+  local row = session.selection - session.scroll
+  if session.hovered and rows[session.hovered] then
+    row = session.hovered
+  end
+  return { row = row, side = side }
+end
+
 -- The view state for the search bar. A new table on each call, so the
 -- window can keep it without seeing later changes:
 --   open       whether the search bar is open
@@ -186,7 +208,8 @@ end
 --   noResults  the "no results" text when the query matches nothing, else nil
 --   results    the visible results (at most as many as the visible
 --              results setting says), top to bottom; each has
---              name, icon, kind, kindLabel, selected (true on one row),
+--              name, icon, kind, gameID (the game's ID for the thing, from
+--              the entry), kindLabel, selected (true on one row),
 --              and matchedLetters: the positions of the name's letters that
 --              matched the query, in order, counted in whole letters (nil
 --              for a long text match and for the recently picked things;
@@ -199,6 +222,10 @@ end
 --              id, label, type ("show" or "use"), selected (true on one
 --              row), and blocked (true when combat blocks the action: the
 --              row shows the "blocked in combat" sign)
+--   tooltip    the result row that shows its WoW tooltip, else nil (see
+--              Tooltip): `row` is its position in `results`, and `side`
+--              ("right" or "left") the side of the search bar where the
+--              tooltip shows
 function SearchSession:View()
   local rows = {}
   for i = self.scroll + 1, math.min(self.scroll + VisibleRows(), #self.results) do
@@ -207,6 +234,7 @@ function SearchSession:View()
       name = entry.name,
       icon = entry.icon,
       kind = entry.kind,
+      gameID = entry.gameID,
       kindLabel = ns.kinds[entry.kind].label,
       selected = i == self.selection,
       matchedLetters = self.matchedLetters[entry],
@@ -235,6 +263,7 @@ function SearchSession:View()
     scroll = self.scroll,
     total = #self.results,
     actionList = actionList,
+    tooltip = Tooltip(self, rows),
   }
 end
 
@@ -249,6 +278,7 @@ end
 function SearchSession:Close()
   self.isOpen = false
   self.actionList = nil
+  self.hovered = nil
   return Changed(self)
 end
 
@@ -256,6 +286,14 @@ end
 function SearchSession:SetQuery(query)
   self.query = query
   self:Search()
+  return Changed(self)
+end
+
+-- The mouse moved onto the visible result row at position `row`, top to
+-- bottom, or off the result rows (nil). It changes only which row shows
+-- its tooltip, not the selection.
+function SearchSession:HoverResult(row)
+  self.hovered = row
   return Changed(self)
 end
 

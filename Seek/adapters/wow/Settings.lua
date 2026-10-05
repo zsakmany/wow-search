@@ -24,8 +24,9 @@ local L = ns.L
 local store -- the settings store, once the saved variables are loaded
 local page -- Seek's page in the Options window
 
--- Blizzard's setting object for the visible results slider.
-local visibleResultsSetting
+-- Blizzard's setting objects for the settings that the character switch
+-- changes: the visible results slider and the tooltip side dropdown.
+local pageSettings = {}
 
 ns.SetSettings({
   Get = function(_, name)
@@ -41,7 +42,42 @@ local function Save()
   SeekCharacterSettings = saved.character
 end
 
--- The page: the character switch, then the visible results slider.
+-- The labels of the tooltip side setting's values.
+local SIDE_LABELS = {
+  right = L.SETTING_TOOLTIP_SIDE_RIGHT,
+  left = L.SETTING_TOOLTIP_SIDE_LEFT,
+  off = L.SETTING_TOOLTIP_SIDE_OFF,
+}
+
+-- The tooltip side dropdown's choices, in the order of the setting's values.
+local function TooltipSideChoices()
+  local container = Settings.CreateControlTextContainer()
+  for _, side in ipairs(ns.settings.tooltipSide.values) do
+    container:Add(side, SIDE_LABELS[side])
+  end
+  return container:GetData()
+end
+
+-- Registers a proxy setting on the page for the store's setting `name`:
+-- the page reads the value from the store, and hands each change to the
+-- store, which saves it. `variable` is the setting's unique name for
+-- Blizzard. Returns Blizzard's setting object.
+local function StoreSetting(variable, name, label)
+  local default = ns.settings[name].default
+  local setting = Settings.RegisterProxySetting(page, variable, type(default), label, default,
+    function()
+      return store:Get(name)
+    end,
+    function(value)
+      store:Set(name, value)
+      Save()
+    end)
+  pageSettings[#pageSettings + 1] = setting
+  return setting
+end
+
+-- The page: the character switch, the visible results slider, and the
+-- tooltip side dropdown.
 local function RegisterPage()
   page = Settings.RegisterVerticalLayoutCategory(L.NAME)
 
@@ -55,26 +91,23 @@ local function RegisterPage()
     function(value)
       store:SetCharacterOnly(value)
       Save()
-      visibleResultsSetting:NotifyUpdate()
+      for _, setting in ipairs(pageSettings) do
+        setting:NotifyUpdate()
+      end
     end)
   Settings.CreateCheckbox(page, characterOnly, L.SETTING_CHARACTER_ONLY_TOOLTIP)
 
   local visibleResults = ns.settings.visibleResults
-  visibleResultsSetting = Settings.RegisterProxySetting(page, "SEEK_VISIBLE_RESULTS",
-    Settings.VarType.Number, L.SETTING_VISIBLE_RESULTS, visibleResults.default,
-    function()
-      return store:Get("visibleResults")
-    end,
-    function(value)
-      store:Set("visibleResults", value)
-      Save()
-    end)
+  local visibleResultsSetting = StoreSetting("SEEK_VISIBLE_RESULTS", "visibleResults", L.SETTING_VISIBLE_RESULTS)
   local options = Settings.CreateSliderOptions(visibleResults.min, visibleResults.max, 1)
   -- The label shows a whole number, also while the slider is between steps.
   options:SetLabelFormatter(MinimalSliderWithSteppersMixin.Label.Right, function(value)
     return tostring(math.floor(value + 0.5))
   end)
   Settings.CreateSlider(page, visibleResultsSetting, options, L.SETTING_VISIBLE_RESULTS_TOOLTIP)
+
+  local tooltipSideSetting = StoreSetting("SEEK_TOOLTIP_SIDE", "tooltipSide", L.SETTING_TOOLTIP_SIDE)
+  Settings.CreateDropdown(page, tooltipSideSetting, TooltipSideChoices, L.SETTING_TOOLTIP_SIDE_TOOLTIP)
 
   Settings.RegisterAddOnCategory(page)
 end

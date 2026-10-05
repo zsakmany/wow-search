@@ -14,12 +14,15 @@
 local _, ns = ...
 
 -- Each setting: its default, and the lowest and highest value (for a
--- number). A changed default here reaches every player who has not changed
--- the setting (ADR 0004).
+-- number) or the values it can have (for a choice). A changed default here
+-- reaches every player who has not changed the setting (ADR 0004).
 ns.settings = {
   -- How many result rows the search bar shows at once, and how many
   -- recently picked things the empty search bar shows.
   visibleResults = { default = 8, min = 3, max = 15 },
+  -- Where the search bar shows the WoW tooltip of the hovered or selected
+  -- result: to its right, to its left, or nowhere.
+  tooltipSide = { default = "right", values = { "right", "left", "off" } },
 }
 
 local adapter

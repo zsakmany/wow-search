@@ -10,6 +10,7 @@ local _, ns = ...
 local L = ns.L
 
 local ROW_HEIGHT = 24
+local ROW_INSET = 10 -- between the window's left and right edges and the result rows
 local TOP_HEIGHT = 64 -- the title bar and the text box
 local QUESTION_MARK_ICON = 134400 -- for an entry without an icon
 local LIST_ROW_HEIGHT = 20
@@ -17,6 +18,7 @@ local LIST_PADDING = 8 -- between the action list's border and its rows
 local LIST_MIN_WIDTH = 140
 local LIST_SIGN_GAP = 12 -- between an action's label and its blocked sign
 local GOLD = "|cffffd100" -- the matched letters of a name: the color of quest titles
+local TOOLTIP_GAP = 4 -- between the window's edge and the tooltip
 
 local Render -- defined below; the session calls it after a change notice
 
@@ -79,7 +81,37 @@ end
 -- matched letters of each name are gold, also on the selected row. The core
 -- sends as many rows as the visible results setting says; rows are made
 -- when more rows than before first need them.
+--
+-- Each row tells the core when the mouse moves onto it or off it (the core
+-- decides which row shows its tooltip). Rows react to mouse motion only:
+-- clicks go through to the window, where they do nothing.
 local rows = {}
+
+local rendering = false -- Render is under way
+
+-- Tells the core that the mouse moved onto the result row at position `row`,
+-- or off the rows (nil), and shows the new view. Only while the window is
+-- shown: a row that hides with the window can get OnLeave then, and the
+-- closed session needs nothing (it forgets the row under the mouse when it
+-- closes). A row that Render hides or shows under the mouse can get OnLeave
+-- or OnEnter in the middle of that Render; the core takes the change at
+-- once, and the window shows it one frame later, so that one Render never
+-- runs inside another.
+local function Hover(row)
+  if not frame:IsShown() then
+    return
+  end
+  local view = session:HoverResult(row)
+  if not rendering then
+    Render(view)
+    return
+  end
+  C_Timer.After(0, function()
+    if frame:IsShown() then
+      Render(session:View())
+    end
+  end)
+end
 
 local function Row(i)
   if rows[i] then
@@ -87,8 +119,16 @@ local function Row(i)
   end
   local row = CreateFrame("Frame", nil, frame)
   row:SetHeight(ROW_HEIGHT)
-  row:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -(TOP_HEIGHT - 4) - (i - 1) * ROW_HEIGHT)
-  row:SetPoint("RIGHT", frame, "RIGHT", -10, 0)
+  row:SetPoint("TOPLEFT", frame, "TOPLEFT", ROW_INSET, -(TOP_HEIGHT - 4) - (i - 1) * ROW_HEIGHT)
+  row:SetPoint("RIGHT", frame, "RIGHT", -ROW_INSET, 0)
+  row:SetMouseMotionEnabled(true)
+  row:SetMouseClickEnabled(false)
+  row:SetScript("OnEnter", function()
+    Hover(i)
+  end)
+  row:SetScript("OnLeave", function()
+    Hover(nil)
+  end)
 
   row.selection = row:CreateTexture(nil, "BACKGROUND")
   row.selection:SetAllPoints()
@@ -187,6 +227,77 @@ local function RenderActionList(view)
   list:ClearAllPoints()
   list:SetPoint("TOPLEFT", anchor, "TOPRIGHT", 16, LIST_PADDING)
   list:Show()
+end
+
+-- The WoW tooltip of one result row: Seek only asks the game to show its
+-- own tooltip for the thing, so it works in combat too. Items show the
+-- general tooltip of the item ID (not a bag slot), spells the spell's, and
+-- quests the tooltip of the quest's link. Seek uses GameTooltip only while
+-- it owns it (owned by the window), and leaves it alone when another frame
+-- has taken it.
+local tooltipShown -- what the tooltip shows for Seek now, or nil (see RenderTooltip)
+
+-- Each kind (core/Kinds.lua) and how to fill GameTooltip with the tooltip
+-- of a thing of that kind, from its game ID. Each returns false when the
+-- game has nothing to show yet (a quest without a link).
+local setTooltip = {
+  item = function(itemID)
+    GameTooltip:SetItemByID(itemID)
+    return true
+  end,
+  spell = function(spellID)
+    GameTooltip:SetSpellByID(spellID)
+    return true
+  end,
+  quest = function(questID)
+    local link = GetQuestLink(questID)
+    if not link then
+      return false
+    end
+    GameTooltip:SetHyperlink(link)
+    return true
+  end,
+}
+
+local function HideTooltip()
+  tooltipShown = nil
+  if GameTooltip:IsOwned(frame) then
+    GameTooltip:Hide()
+  end
+end
+
+-- Shows the tooltip of the row that the view says, to the right or the
+-- left of the window, its top level with the row's top; or hides it. The
+-- core decides when there is one (the row under the mouse, else the
+-- selected row; none while the action list is open on the right side).
+local function RenderTooltip(view)
+  local tooltip = view.tooltip
+  local result = tooltip and view.results[tooltip.row]
+  if not result then
+    HideTooltip()
+    return
+  end
+  -- The same thing at the same place: leave it as it is, so it does not
+  -- flicker on each key press.
+  local shown = table.concat({ result.kind, tostring(result.gameID), tooltip.row, tooltip.side }, ":")
+  if shown == tooltipShown and GameTooltip:IsOwned(frame) then
+    return
+  end
+  local row = rows[tooltip.row]
+  GameTooltip:SetOwner(frame, "ANCHOR_NONE")
+  GameTooltip:ClearAllPoints()
+  if tooltip.side == "left" then
+    GameTooltip:SetPoint("TOPRIGHT", row, "TOPLEFT", -(ROW_INSET + TOOLTIP_GAP), 0)
+  else
+    GameTooltip:SetPoint("TOPLEFT", row, "TOPRIGHT", ROW_INSET + TOOLTIP_GAP, 0)
+  end
+  local set = setTooltip[result.kind]
+  if not (set and set(result.gameID)) then
+    HideTooltip()
+    return
+  end
+  GameTooltip:Show()
+  tooltipShown = shown
 end
 
 -- Shows the query, the hint, the result rows, the "no results" text, and
@@ -327,8 +438,11 @@ local function RenderKeys(view)
   end
 end
 
--- Shows a view state from the core.
+-- Shows a view state from the core. The tooltip comes last, once the
+-- window is shown or hidden, so that it never belongs to a hidden window.
 function Render(view)
+  local outer = rendering
+  rendering = true
   RenderContent(view)
   RenderKeys(view)
   if view.open then
@@ -348,6 +462,8 @@ function Render(view)
     box:ClearFocus()
     frame:Hide()
   end
+  RenderTooltip(view)
+  rendering = outer
 end
 
 -- Opens the search bar, or closes it when it is open.

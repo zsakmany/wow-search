@@ -19,6 +19,7 @@ local LIST_MIN_WIDTH = 140
 local LIST_SIGN_GAP = 12 -- between an action's label and its blocked sign
 local GOLD = "|cffffd100" -- the matched letters of a name: the color of quest titles
 local TOOLTIP_GAP = 4 -- between the window's edge and the tooltip
+local FADED_ALPHA = 0.5 -- the icon, name, and kind of a faded result
 
 local Render -- defined below; the session calls it after a change notice
 
@@ -78,7 +79,9 @@ local function ColoredName(name, matched)
 end
 
 -- The result rows: icon, name, and kind. The selected row is lit. The
--- matched letters of each name are gold, also on the selected row. The core
+-- matched letters of each name are gold, also on the selected row. A faded
+-- result (no actions, such as an item in another character's bags) has a
+-- gray icon and dim text; its row is lit as brightly when selected. The core
 -- sends as many rows as the visible results setting says; rows are made
 -- when more rows than before first need them. Rows do not react to the
 -- mouse (yet).
@@ -287,6 +290,11 @@ local function RenderContent(view)
       row.icon:SetTexture(result.icon or QUESTION_MARK_ICON)
       row.name:SetText(ColoredName(result.name, result.matchedLetters))
       row.kind:SetText(result.kindLabel)
+      row.icon:SetDesaturated(result.faded)
+      local alpha = result.faded and FADED_ALPHA or 1
+      row.icon:SetAlpha(alpha)
+      row.name:SetAlpha(alpha)
+      row.kind:SetAlpha(alpha)
       row.selection:SetShown(result.selected)
       row:Show()
     else

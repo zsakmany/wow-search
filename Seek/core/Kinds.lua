@@ -1,7 +1,7 @@
 -- The kind registry: the kinds that Seek knows, and each kind's actions. An
 -- entry must have one of these kinds, or Seek rejects it. Actions belong to
--- the kind, not to the source, so every entry of a kind gets the same
--- actions, whatever source gave it.
+-- the kind, not to the source, so an entry gets its kind's actions (those
+-- that it can do, see below), whatever source gave it.
 --
 -- Each kind has a label from the locale table and a list of actions. Each
 -- action has:
@@ -10,13 +10,15 @@
 --   type   "show" (opens or highlights the thing; combat never blocks it)
 --          or "use" (makes the character do the thing; in combat it is
 --          blocked, see SearchSession.lua)
---   needs  (optional) the name of an entry fact that must be true for the
---          entry to have this action, such as "usable": only an item that
---          can be used gets "use"
--- The first action is the kind's main action, which Enter runs, when it is
--- a show action; Enter never makes the character do something. A kind with
--- no show action has no main action: Enter does nothing for it. The action
--- list shows all of the actions, in this order: the show actions first,
+--   needs  (optional) the names of the entry facts that must be true for
+--          the entry to have this action, such as "usable": only an item
+--          that can be used gets "use"
+-- An entry gets only those of its kind's actions that it can do. Its first
+-- action is its main action, which Enter runs, when it is a show action;
+-- Enter never makes the character do something. An entry with no show
+-- action has no main action: Enter does nothing for it. An entry with no
+-- actions at all is a faded result (see GLOSSARY.md). The action list
+-- shows all of the entry's actions, in this order: the show actions first,
 -- then the use actions.
 local _, ns = ...
 
@@ -25,9 +27,11 @@ local L = ns.L
 ns.kinds = {
   item = {
     label = L.KIND_ITEM,
+    -- Only an item in the current character's bags can be shown or used;
+    -- an item in another character's bags has no actions.
     actions = {
-      { id = "showInBag", label = L.ACTION_SHOW_IN_BAG, type = "show" },
-      { id = "useItem", label = L.ACTION_USE, type = "use", needs = "usable" },
+      { id = "showInBag", label = L.ACTION_SHOW_IN_BAG, type = "show", needs = { "inBags" } },
+      { id = "useItem", label = L.ACTION_USE, type = "use", needs = { "inBags", "usable" } },
     },
   },
   spell = {
@@ -59,24 +63,34 @@ for name, kind in pairs(ns.kinds) do
   end
 end
 
--- The main action of an entry's kind, or nil when the kind has no show
--- action.
-function ns.MainAction(entry)
-  local first = ns.kinds[entry.kind].actions[1]
-  if first.type == "show" then
-    return first
+-- Whether the entry has every fact that `action` needs.
+local function CanDo(entry, action)
+  for _, fact in ipairs(action.needs or {}) do
+    if entry[fact] ~= true then
+      return false
+    end
   end
+  return true
 end
 
 -- All actions of an entry, the main action first: what its action list
--- shows. An action that needs an entry fact is left out when the entry does
--- not have it.
+-- shows. An action is left out when the entry does not have a fact that it
+-- needs.
 function ns.EntryActions(entry)
   local actions = {}
   for _, action in ipairs(ns.kinds[entry.kind].actions) do
-    if not action.needs or entry[action.needs] == true then
+    if CanDo(entry, action) then
       actions[#actions + 1] = action
     end
   end
   return actions
+end
+
+-- The entry's main action: its first action, when that is a show action.
+-- Nil when the entry has no show action.
+function ns.MainAction(entry)
+  local first = ns.EntryActions(entry)[1]
+  if first and first.type == "show" then
+    return first
+  end
 end

@@ -17,6 +17,11 @@ ns.L = {
   KIND_SPELL = "Spell",
   KIND_QUEST = "Quest",
 
+  -- The kind shown on the row of another character's result: the kind, and
+  -- the owner's name (with the realm when it is not the current
+  -- character's), such as "Item · Bob" or "Item · Bob-Stormrage"
+  KIND_WITH_OWNER = "%s · %s",
+
   -- The actions' names, as the action list shows them
   ACTION_SHOW_IN_BAG = "Show in bag",
   ACTION_SHOW_IN_QUEST_LOG = "Show in quest log",
@@ -46,6 +51,10 @@ ns.L = {
   SETTING_TOOLTIP_SIDE_RIGHT = "Right",
   SETTING_TOOLTIP_SIDE_LEFT = "Left",
   SETTING_TOOLTIP_SIDE_OFF = "Off",
+  SETTING_OTHER_CHARACTERS_BAGS = "Show other characters' bags",
+  SETTING_OTHER_CHARACTERS_BAGS_TOOLTIP = "Search also finds the items in the bags of your other characters "
+    .. "on this account, faded, with the character's name. A character's bags show after it has logged in "
+    .. "once with Seek.",
 
   -- In chat, once, after Seek has set its suggested key; %s is the key
   SUGGESTED_KEY_SET = "Seek: press %s to open the search bar. You can change the key in the Keybindings menu.",

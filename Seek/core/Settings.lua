@@ -14,7 +14,8 @@
 local _, ns = ...
 
 -- Each setting: its default, and the lowest and highest value (for a
--- number) or the values it can have (for a choice). A changed default here
+-- number) or the values it can have (for a choice); a setting with a
+-- true or false default is a switch. A changed default here
 -- reaches every player who has not changed the setting (ADR 0004).
 ns.settings = {
   -- How many result rows the search bar shows at once, and how many
@@ -23,6 +24,9 @@ ns.settings = {
   -- Where the search bar shows the WoW tooltip of the selected
   -- result: to its right, to its left, or nowhere.
   tooltipSide = { default = "right", values = { "right", "left", "off" } },
+  -- Whether search shows the items in the bags of the player's other
+  -- characters (CharacterBags.lua).
+  otherCharactersBags = { default = true },
 }
 
 local adapter

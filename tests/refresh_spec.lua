@@ -6,7 +6,7 @@
 local FakeGame = require("tests.fake_game")
 
 local function Item(name, itemID)
-  return { name = name, icon = 134400, kind = "item", gameID = itemID, owner = "Tester" }
+  return { name = name, icon = 134400, kind = "item", gameID = itemID, owner = "Tester", inBags = true }
 end
 
 local function Spell(name, spellID)
@@ -207,6 +207,8 @@ describe("a large source", function()
 
   it("finishes its steps when combat starts after it was read", function()
     local game = FakeGame.Started({ stepByStep = true })
+    -- The reads of the start (Seek's own source of other characters' bags).
+    game:RunSteps()
     local bags = Source(game, "Test.Bags", Potions(500))
     game.Seek.RegisterSource(bags)
     game:Step()

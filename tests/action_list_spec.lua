@@ -6,7 +6,7 @@
 local FakeGame = require("tests.fake_game")
 
 local function Item(name, itemID)
-  return { name = name, icon = 134400, kind = "item", gameID = itemID, owner = "Tester" }
+  return { name = name, icon = 134400, kind = "item", gameID = itemID, owner = "Tester", inBags = true }
 end
 
 local function Quest(title, questID)
@@ -256,5 +256,18 @@ describe("the action list", function()
     assert.are.equal("Show in bag", selected)
     session:PressKey("ENTER")
     assert.are.same({ { action = "showInBag", kind = "item", gameID = 6948 } }, requests)
+  end)
+
+  it("does not open for an item that is not in the character's bags, and Enter does nothing", function()
+    -- Not in the bags: the entry has no `inBags`.
+    GivenSource("Test.Things", { { name = "Hearthstone", icon = 134400, kind = "item", gameID = 6948 } })
+    session:Open()
+    session:SetQuery("hearth")
+    local view = session:PressKey("TAB")
+    assert.is_nil(view.actionList)
+    view = session:PressKey("ENTER")
+    assert.is_true(view.open)
+    assert.are.equal("Hearthstone", SelectedResult(view))
+    assert.are.same({}, requests)
   end)
 end)

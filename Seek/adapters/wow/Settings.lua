@@ -25,7 +25,8 @@ local store -- the settings store, once the saved variables are loaded
 local page -- Seek's page in the Options window
 
 -- Blizzard's setting objects for the settings that the character switch
--- changes: the visible results slider and the tooltip side dropdown.
+-- changes: the visible results slider, the tooltip side dropdown, and the
+-- other characters' bags checkbox.
 local pageSettings = {}
 
 ns.SetSettings({
@@ -76,8 +77,8 @@ local function StoreSetting(variable, name, label)
   return setting
 end
 
--- The page: the character switch, the visible results slider, and the
--- tooltip side dropdown.
+-- The page: the character switch, the visible results slider, the tooltip
+-- side dropdown, and the other characters' bags checkbox.
 local function RegisterPage()
   page = Settings.RegisterVerticalLayoutCategory(L.NAME)
 
@@ -108,6 +109,10 @@ local function RegisterPage()
 
   local tooltipSideSetting = StoreSetting("SEEK_TOOLTIP_SIDE", "tooltipSide", L.SETTING_TOOLTIP_SIDE)
   Settings.CreateDropdown(page, tooltipSideSetting, TooltipSideChoices, L.SETTING_TOOLTIP_SIDE_TOOLTIP)
+
+  local otherCharactersBagsSetting = StoreSetting("SEEK_OTHER_CHARACTERS_BAGS", "otherCharactersBags",
+    L.SETTING_OTHER_CHARACTERS_BAGS)
+  Settings.CreateCheckbox(page, otherCharactersBagsSetting, L.SETTING_OTHER_CHARACTERS_BAGS_TOOLTIP)
 
   Settings.RegisterAddOnCategory(page)
 end

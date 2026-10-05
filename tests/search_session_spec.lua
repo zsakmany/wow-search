@@ -7,7 +7,7 @@ local HINT = "Search bags, spells, quests…"
 local NO_RESULTS = "No results"
 
 local function Item(name, itemID)
-  return { name = name, icon = 134400, kind = "item", gameID = itemID, owner = "Tester" }
+  return { name = name, icon = 134400, kind = "item", gameID = itemID, owner = "Tester", inBags = true }
 end
 
 -- The names of the visible result rows, top to bottom, and the name of the
@@ -180,5 +180,17 @@ describe("the search session", function()
     local rows, selected = Rows(session:SetQuery("potion 1"))
     assert.are.same({ "Potion 10", "Potion 11", "Potion 12", "Potion 01" }, rows)
     assert.are.equal("Potion 10", selected)
+  end)
+
+  it("fades a result with no actions, and the player can still select it", function()
+    -- Not in the bags: the entry has no `inBags`, so it has no actions.
+    local elsewhere = { name = "Potion 02", icon = 134400, kind = "item", gameID = 2 }
+    GivenEntries({ Item("Potion 01", 1), elsewhere })
+    session:Open()
+    local view = session:SetQuery("potion")
+    assert.is_false(view.results[1].faded)
+    assert.is_true(view.results[2].faded)
+    local _, selected = Rows(session:PressKey("DOWN"))
+    assert.are.equal("Potion 02", selected)
   end)
 end)

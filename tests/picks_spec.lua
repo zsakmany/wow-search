@@ -10,11 +10,15 @@ local FakeGame = require("tests.fake_game")
 local HINT = "Search bags, spells, quests…"
 
 local function Item(name, itemID, usable)
-  return { name = name, icon = 134400, kind = "item", gameID = itemID, owner = "Tester", usable = usable }
+  return {
+    name = name, icon = 134400, kind = "item", gameID = itemID, owner = "Tester", inBags = true, usable = usable,
+  }
 end
 
 local function ItemWithText(name, itemID, longText)
-  return { name = name, icon = 134400, kind = "item", gameID = itemID, owner = "Tester", longText = longText }
+  return {
+    name = name, icon = 134400, kind = "item", gameID = itemID, owner = "Tester", inBags = true, longText = longText,
+  }
 end
 
 -- The names of the results the search bar shows, top to bottom.
@@ -316,6 +320,19 @@ describe("picks", function()
     it("shows the hint when the player no longer has any picked thing", function()
       GivenSource("Test.Bags", potions)
       Pick("potion 01", "Potion 01")
+      table.remove(potions, 1)
+      game.Seek.NotifyChanged("Test.Bags")
+      local view = session:Open()
+      assert.are.same({}, view.results)
+      assert.are.equal(HINT, view.hint)
+    end)
+
+    it("leaves out a picked thing that is left only as a faded result (no actions)", function()
+      GivenSource("Test.Bags", potions)
+      -- Another source has the same thing, but not in the bags: no actions.
+      GivenSource("Test.Elsewhere", { { name = "Potion 01", icon = 134400, kind = "item", gameID = 1 } })
+      Pick("potion 01", "Potion 01")
+      assert.are.same({ "Potion 01" }, Names(session:Open()))
       table.remove(potions, 1)
       game.Seek.NotifyChanged("Test.Bags")
       local view = session:Open()

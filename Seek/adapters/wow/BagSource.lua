@@ -1,10 +1,13 @@
 -- Seek's bag source: one entry per distinct item in the character's bags
 -- (the backpack and the equipped bags, not the bank), with the item's
 -- tooltip text as its long text. It registers through the public `Seek`
--- table, like any other addon's source.
+-- table, like any other addon's source. Each entry has the `inBags` fact,
+-- which gives it its actions. The core also keeps these items as the
+-- character's bags, for the player's other characters
+-- (core/CharacterBags.lua).
 local _, ns = ...
 
-local SOURCE_ID = "Seek.Bags"
+local SOURCE_ID = ns.BAG_SOURCE_ID
 
 local FIRST_BAG = Enum.BagIndex.Backpack
 local LAST_BAG = NUM_TOTAL_EQUIPPED_BAG_SLOTS or NUM_BAG_SLOTS
@@ -13,16 +16,6 @@ local ITEM_NAME_LINE = Enum.TooltipDataLineType.ItemName
 
 -- Items whose data the game is still loading (item ID -> true).
 local loading = {}
-
--- "Name-Realm" of the current character (the realm can be missing early in
--- the login).
-local function CurrentCharacter()
-  local name, realm = UnitFullName("player")
-  if realm and realm ~= "" then
-    return name .. "-" .. realm
-  end
-  return name
-end
 
 -- The tooltip text of the item in a bag slot: each line's left and right
 -- text, without the line with the item's name (the entry's name already has
@@ -59,7 +52,7 @@ end
 -- once for all of their notices.)
 local function GetEntries()
   local entries, seen = {}, {}
-  local owner = CurrentCharacter()
+  local owner = ns.CurrentCharacter()
   for bag = FIRST_BAG, LAST_BAG do
     for slot = 1, C_Container.GetContainerNumSlots(bag) do
       local info = C_Container.GetContainerItemInfo(bag, slot)
@@ -75,6 +68,7 @@ local function GetEntries()
             gameID = itemID,
             owner = owner,
             longText = TooltipText(bag, slot),
+            inBags = true,
             usable = Usable(itemID),
           }
         elseif not loading[itemID] then

@@ -12,16 +12,6 @@ local SOURCE_ID = "Seek.Quests"
 -- The quest log API gives no icon for a quest; all quests share this one.
 local QUEST_ICON = "Interface\\Icons\\INV_Misc_Book_08"
 
--- "Name-Realm" of the current character (the realm can be missing early in
--- the login).
-local function CurrentCharacter()
-  local name, realm = UnitFullName("player")
-  if realm and realm ~= "" then
-    return name .. "-" .. realm
-  end
-  return name
-end
-
 -- Calls `visit(index, questID, title)` for each quest that the quest log
 -- lists, with its index in the quest log.
 local function EachQuest(visit)
@@ -53,7 +43,7 @@ end
 
 local function GetEntries()
   local entries = {}
-  local owner = CurrentCharacter()
+  local owner = ns.CurrentCharacter()
   EachQuest(function(index, questID, title)
     entries[#entries + 1] = {
       name = title,

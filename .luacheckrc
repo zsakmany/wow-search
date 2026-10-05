@@ -24,6 +24,8 @@ files["Seek/adapters/wow/"] = {
     -- The saved copy of the entries and the picks, per character (the TOC's
     -- saved variable)
     "SeekSavedCopy",
+    -- Each character's bags, account-wide (the TOC's saved variable)
+    "SeekAccountData",
     -- The binding sets that got the suggested key, account-wide (the TOC's
     -- saved variable)
     "SeekSuggestedKey",

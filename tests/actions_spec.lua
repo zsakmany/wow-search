@@ -6,7 +6,7 @@
 local FakeGame = require("tests.fake_game")
 
 local function Item(name, itemID)
-  return { name = name, icon = 134400, kind = "item", gameID = itemID, owner = "Tester" }
+  return { name = name, icon = 134400, kind = "item", gameID = itemID, owner = "Tester", inBags = true }
 end
 
 local function Spell(name, spellID)

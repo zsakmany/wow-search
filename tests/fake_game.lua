@@ -1,8 +1,10 @@
 -- A fake game for the tests: loads Seek's core the way WoW does and plugs
 -- fake adapters into its ports:
 --   combat     a fake combat state that the test turns on and off
---   storage    an in-memory storage; a reload keeps it, as WoW keeps saved
---              variables
+--   character  the current character, "Tester" unless the test names one
+--   storage    an in-memory storage: the character's own saved data and the
+--              account's, which all of the account's characters share; a
+--              reload keeps both, as WoW keeps saved variables
 --   scheduler  runs work all at once, or, with `stepByStep`, one step each
 --              time the test asks
 --   clock      a fake clock that stands still until the test moves it on; a
@@ -11,7 +13,8 @@
 --              Seek's settings page; a reload keeps them
 -- The test acts as the game: it registers fake sources through `game.Seek`
 -- (the public API), starts the core (as WoW does when the saved variables
--- are loaded), enters and leaves combat, lets days pass, and reloads.
+-- are loaded), enters and leaves combat, lets days pass, reloads, and logs
+-- in as another character of the same account.
 
 local load_core = require("tests.load_core")
 
@@ -28,7 +31,14 @@ local function Copy(value)
   return copy
 end
 
-local function NewStorage()
+-- The saved data of one account: the account-wide data (`data`), and each
+-- character's storage, by name.
+local function NewAccount()
+  return { characters = {} }
+end
+
+-- One character's storage on `account`. Its own data is `storage.data`.
+local function NewStorage(account)
   local storage = {}
   function storage:Load()
     return Copy(self.data)
@@ -36,7 +46,21 @@ local function NewStorage()
   function storage:Save(data)
     self.data = Copy(data)
   end
+  function storage.LoadAccount()
+    return Copy(account.data)
+  end
+  function storage.SaveAccount(_, data)
+    account.data = Copy(data)
+  end
   return storage
+end
+
+local function NewCharacter(name)
+  local character = { name = name }
+  function character:Name()
+    return self.name
+  end
+  return character
 end
 
 local function NewCombatState(inCombat)
@@ -118,22 +142,31 @@ local M = {}
 -- options (all optional):
 --   inCombat    the player is in combat
 --   stepByStep  the scheduler runs one step each time the test asks
---   storage     the storage to use (a reload passes the old game's)
+--   character   the current character's name, as "Name-Realm"
+--   account     the account's saved data (a reload and a login pass the old
+--               game's)
+--   storage     the character's storage (a reload passes the old game's)
 --   clock       the clock to use (a reload passes the old game's)
 --   settings    the settings to use (a reload passes the old game's)
 function M.New(options)
   options = options or {}
   local ns = load_core()
+  local account = options.account or NewAccount()
+  local character = options.character or "Tester"
+  account.characters[character] = options.storage or account.characters[character] or NewStorage(account)
   local game = setmetatable({
     ns = ns,
     Seek = ns.api,
     combat = NewCombatState(options.inCombat),
-    storage = options.storage or NewStorage(),
+    character = NewCharacter(character),
+    account = account,
+    storage = account.characters[character],
     scheduler = NewScheduler(options.stepByStep),
     clock = options.clock or NewClock(),
     settings = options.settings or NewSettings(),
   }, FakeGame)
   ns.SetCombatState(game.combat)
+  ns.SetCharacter(game.character)
   ns.SetStorage(game.storage)
   ns.SetScheduler(game.scheduler)
   ns.SetClock(game.clock)
@@ -200,8 +233,18 @@ function FakeGame:Reload(options)
   if inCombat == nil then
     inCombat = self.combat.inCombat
   end
-  return M.New({ inCombat = inCombat, stepByStep = options.stepByStep, storage = self.storage,
-    clock = self.clock, settings = self.settings })
+  return M.New({ inCombat = inCombat, stepByStep = options.stepByStep, character = self.character.name,
+    account = self.account, storage = self.storage, clock = self.clock, settings = self.settings })
+end
+
+-- The player logs out and logs in as `character` on the same account: a new
+-- game with a freshly loaded core, that character's own saved data (none on
+-- its first login), the account's saved data, the same clock, and the same
+-- settings, not started yet. `options` as for a reload.
+function FakeGame:LogIn(character, options)
+  options = options or {}
+  return M.New({ inCombat = options.inCombat, stepByStep = options.stepByStep, character = character,
+    account = self.account, clock = self.clock, settings = self.settings })
 end
 
 return M

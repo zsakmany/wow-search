@@ -85,15 +85,19 @@ end
 -- A name match always ranks above a long text match. Then best rank first:
 -- the match score (long text matches all have the same score) plus the
 -- boost from the player's picks (Picks.lua), so picks reorder results only
--- inside each of the two groups. Equal ranks sort by name, then kind, then
--- the entry's fixed position, so the same query always gives the same
--- order.
+-- inside each of the two groups. Of equal ranks, the current character's
+-- entries come before another character's; then they sort by name, then
+-- kind, then the entry's fixed position, so the same query always gives
+-- the same order.
 local function Ranks(a, b)
   if a.byName ~= b.byName then
     return a.byName
   end
   if a.rank ~= b.rank then
     return a.rank > b.rank
+  end
+  if a.other ~= b.other then
+    return b.other
   end
   local x, y = a.entry, b.entry
   if x.sortName ~= y.sortName then
@@ -106,6 +110,12 @@ local function Ranks(a, b)
     return x.kind < y.kind
   end
   return x.order < y.order
+end
+
+-- Whether an entry is another character's: it has an owner, and the owner
+-- is not the current character.
+local function OtherCharacters(entry, current)
+  return type(entry.owner) == "string" and entry.owner ~= current
 end
 
 -- Whether two entries are the same game thing. A source that is read again
@@ -123,7 +133,8 @@ end
 --
 -- The action list belongs to the selected result. A new query closes it.
 -- When a source's entries change, it stays open only if the selected
--- result is still the same thing, and then it shows that thing's new entry.
+-- result is still the same thing and still has actions, and then it shows
+-- that thing's new entry.
 function SearchSession:Search(keepSelection)
   local results, matchedLetters = {}, {}
   if self.query == "" then
@@ -132,14 +143,16 @@ function SearchSession:Search(keepSelection)
     local matches = {}
     local query = ns.PrepareQuery(self.query)
     local boost = ns.PickBoosts(self.query)
+    local current = ns.CurrentCharacter()
     for _, entry in ipairs(ns.Entries()) do
+      local other = OtherCharacters(entry, current)
       local score, letters = ns.Score(query, entry.match)
       if score then
         matches[#matches + 1] = {
-          entry = entry, rank = score + boost(entry), byName = true, letters = letters,
+          entry = entry, rank = score + boost(entry), byName = true, letters = letters, other = other,
         }
       elseif entry.longTextMatch and ns.MatchesLongText(query, entry.longTextMatch) then
-        matches[#matches + 1] = { entry = entry, rank = boost(entry), byName = false }
+        matches[#matches + 1] = { entry = entry, rank = boost(entry), byName = false, other = other }
       end
     end
     table.sort(matches, Ranks)
@@ -156,8 +169,9 @@ function SearchSession:Search(keepSelection)
   local list = self.actionList
   if list then
     local entry = results[self.selection]
-    if keepSelection and SameThing(entry, list.entry) then
-      list.entry, list.actions = entry, ns.EntryActions(entry)
+    local actions = keepSelection and SameThing(entry, list.entry) and ns.EntryActions(entry)
+    if actions and #actions > 0 then
+      list.entry, list.actions = entry, actions
       self:MoveInActionList(0)
     else
       self.actionList = nil
@@ -192,6 +206,24 @@ local function Tooltip(session, rows)
   return { row = session.selection - session.scroll, side = side }
 end
 
+-- The owner of another character's entry, as its row shows it: the name,
+-- and the realm only when it is not the current character's ("Bob", or
+-- "Bob-Stormrage"). Nil for the current character's entries, and for
+-- entries with no owner.
+local function OwnerText(entry, current)
+  if not OtherCharacters(entry, current) then
+    return nil
+  end
+  local owner = entry.owner
+  -- A character's name has no hyphen; the realm follows the first one.
+  local name, realm = owner:match("^(.-)%-(.+)$")
+  local _, currentRealm = (current or ""):match("^(.-)%-(.+)$")
+  if realm and realm == currentRealm then
+    return name
+  end
+  return owner
+end
+
 -- The view state for the search bar. A new table on each call, so the
 -- window can keep it without seeing later changes:
 --   open       whether the search bar is open
@@ -202,7 +234,11 @@ end
 --   results    the visible results (at most as many as the visible
 --              results setting says), top to bottom; each has
 --              name, icon, kind, gameID (the game's ID for the thing, from
---              the entry), kindLabel, selected (true on one row),
+--              the entry), owner (the owner's name for another
+--              character's result, see OwnerText, else nil), kindLabel
+--              (the kind, with the owner's name when there is one: the
+--              row's kind text), faded (true for a result with no actions:
+--              the search bar draws it faded), selected (true on one row),
 --              and matchedLetters: the positions of the name's letters that
 --              matched the query, in order, counted in whole letters (nil
 --              for a long text match and for the recently picked things;
@@ -221,14 +257,19 @@ end
 --              tooltip shows
 function SearchSession:View()
   local rows = {}
+  local current = ns.CurrentCharacter()
   for i = self.scroll + 1, math.min(self.scroll + VisibleRows(), #self.results) do
     local entry = self.results[i]
+    local owner = OwnerText(entry, current)
+    local kindLabel = ns.kinds[entry.kind].label
     rows[#rows + 1] = {
       name = entry.name,
       icon = entry.icon,
       kind = entry.kind,
       gameID = entry.gameID,
-      kindLabel = ns.kinds[entry.kind].label,
+      owner = owner,
+      kindLabel = owner and L.KIND_WITH_OWNER:format(kindLabel, owner) or kindLabel,
+      faded = #ns.EntryActions(entry) == 0,
       selected = i == self.selection,
       matchedLetters = self.matchedLetters[entry],
     }
@@ -304,11 +345,13 @@ function SearchSession:RunMainAction()
 end
 
 -- Opens the action list of the selected result, with its main action
--- selected. With no results, nothing happens.
+-- selected. With no results, or for a faded result (no actions), nothing
+-- happens.
 function SearchSession:OpenActionList()
   local entry = self.results[self.selection]
-  if entry then
-    self.actionList = { entry = entry, actions = ns.EntryActions(entry), selection = 1 }
+  local actions = entry and ns.EntryActions(entry)
+  if actions and #actions > 0 then
+    self.actionList = { entry = entry, actions = actions, selection = 1 }
   end
 end
 

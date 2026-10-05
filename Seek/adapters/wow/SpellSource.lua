@@ -13,16 +13,6 @@ local SOURCE_ID = "Seek.Spells"
 local PLAYER = Enum.SpellBookSpellBank.Player
 local SPELL = Enum.SpellBookItemType.Spell
 
--- "Name-Realm" of the current character (the realm can be missing early in
--- the login).
-local function CurrentCharacter()
-  local name, realm = UnitFullName("player")
-  if realm and realm ~= "" then
-    return name .. "-" .. realm
-  end
-  return name
-end
-
 -- Spells whose description was empty at the last read (spell ID -> true).
 -- The game may still be loading it.
 local waiting = {}
@@ -62,7 +52,7 @@ end
 
 local function GetEntries()
   local entries, seen = {}, {}
-  local owner = CurrentCharacter()
+  local owner = ns.CurrentCharacter()
   for line = 1, C_SpellBook.GetNumSpellBookSkillLines() do
     local lineInfo = C_SpellBook.GetSpellBookSkillLineInfo(line)
     if lineInfo and not lineInfo.shouldHide and not lineInfo.offSpecID then

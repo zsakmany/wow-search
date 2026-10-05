@@ -157,13 +157,15 @@ end
 -- Up to `count` of `entries`, one for each recently picked thing, the most
 -- recent pick first. A thing with no entry in `entries` is left out (the
 -- player no longer has it); its picks stay and count again when it comes
--- back. Of two entries of the same thing, the first in `entries` is used.
+-- back. An entry with no actions (a faded result, such as an item in
+-- another character's bags) is never a pick, so it is left out too. Of two
+-- entries of the same thing, the first in `entries` is used.
 function ns.RecentlyPicked(entries, count)
   local now = ns.Now()
   local byKey = {}
   for _, entry in ipairs(entries) do
     local key = Key(entry)
-    if key and not byKey[key] then
+    if key and not byKey[key] and #ns.EntryActions(entry) > 0 then
       byKey[key] = entry
     end
   end

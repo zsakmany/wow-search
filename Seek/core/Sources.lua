@@ -14,11 +14,14 @@
 --   longText  plain text that the query matches at word starts, such as an
 --             item's tooltip text (optional; no color codes or links: Seek
 --             keeps it in the saved copy)
+--   inBags  (items) true when the item is in the current character's bags;
+--           only then does it get its actions, "show in bag" and "use"
+--           (Kinds.lua). An item in another character's bags has none.
 --   usable  (items) true when the player can use the item, such as a
 --           Hearthstone; only then does it get the "use" action (Kinds.lua)
 -- Seek rejects (leaves out) an entry with no name or an unknown kind, and
--- leaves out long text that is not a string. Any `usable` other than true
--- counts as false.
+-- leaves out long text that is not a string. Any `inBags` or `usable` other
+-- than true counts as false.
 --
 -- When its data changes, a source calls NotifyChanged(id). Seek then reads
 -- it again and replaces all of its old entries.
@@ -77,6 +80,7 @@ local function Accept(entry)
     gameID = entry.gameID,
     owner = entry.owner,
     longText = type(entry.longText) == "string" and entry.longText or nil,
+    inBags = entry.inBags == true or nil,
     usable = entry.usable == true or nil,
   }
 end
@@ -90,6 +94,7 @@ local function Prepare(copy)
     icon = copy.icon,
     gameID = copy.gameID,
     owner = copy.owner,
+    inBags = copy.inBags,
     usable = copy.usable,
     match = ns.PrepareName(copy.name),
     longTextMatch = copy.longText and ns.PrepareLongText(copy.longText),
@@ -110,12 +115,15 @@ local function Rebuild()
   end
 end
 
--- Swaps in a source's new entries at once, and saves them.
+-- Swaps in a source's new entries at once, and saves them. The bag
+-- source's entries are also kept as the current character's bags
+-- (CharacterBags.lua).
 local function Replace(id, copies, entries)
   saved.sources[id] = copies
   entriesById[id] = entries
   Rebuild()
   ns.Save(saved)
+  ns.KeepCharacterBags(id, copies)
 end
 
 -- The steps of one read. The first step reads the source (only outside
@@ -205,9 +213,9 @@ end
 
 -- Starts Seek when the storage is ready (in WoW, when the saved variables
 -- are loaded, after all of the addon's files have run): loads the saved
--- copy, so search works at once, and the picks (Picks.lua), and reads the
--- stale sources (all of them after a reload) when Seek may read. Later
--- calls do nothing.
+-- copy, so search works at once, the picks (Picks.lua), and each
+-- character's bags (CharacterBags.lua), and reads the stale sources (all of
+-- them after a reload) when Seek may read. Later calls do nothing.
 function ns.Start()
   if started then
     return
@@ -216,6 +224,7 @@ function ns.Start()
   local data = ns.LoadSaved()
   LoadSavedCopy(data)
   ns.LoadPicks(data)
+  ns.LoadCharacterBags(ns.LoadAccountSaved())
   for _, state in ipairs(sources) do
     UseSavedCopy(state.source.id)
   end

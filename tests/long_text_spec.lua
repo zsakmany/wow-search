@@ -6,7 +6,9 @@
 local FakeGame = require("tests.fake_game")
 
 local function Item(name, itemID, longText)
-  return { name = name, icon = 134400, kind = "item", gameID = itemID, owner = "Tester", longText = longText }
+  return {
+    name = name, icon = 134400, kind = "item", gameID = itemID, owner = "Tester", inBags = true, longText = longText,
+  }
 end
 
 local function Names(view)

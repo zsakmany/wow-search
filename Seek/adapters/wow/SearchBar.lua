@@ -16,6 +16,7 @@ local LIST_ROW_HEIGHT = 20
 local LIST_PADDING = 8 -- between the action list's border and its rows
 local LIST_MIN_WIDTH = 140
 local LIST_SIGN_GAP = 12 -- between an action's label and its blocked sign
+local GOLD = "|cffffd100" -- the matched letters of a name: the color of quest titles
 
 local Render -- defined below; the session calls it after a change notice
 
@@ -51,7 +52,31 @@ hint:SetPoint("LEFT", box, "LEFT", 0, 0)
 local noResults = frame:CreateFontString(nil, "ARTWORK", "GameFontDisable")
 noResults:SetPoint("TOPLEFT", frame, "TOPLEFT", 18, -TOP_HEIGHT)
 
--- The result rows: icon, name, and kind. The selected row is lit. The core
+-- A result's name for its row: the letters at the `matched` positions (nil
+-- or empty for none) in gold, the others as they are. Each "|" in the name
+-- becomes "||", so that a name never breaks the color codes.
+local function ColoredName(name, matched)
+  local isMatched = {}
+  for _, position in ipairs(matched or {}) do
+    isMatched[position] = true
+  end
+  local position, gold = 0, false
+  local text = name:gsub(ns.LETTER_PATTERN, function(letter)
+    position = position + 1
+    local start = ""
+    if (isMatched[position] or false) ~= gold then
+      gold = not gold
+      start = gold and GOLD or "|r"
+    end
+    -- Not `letter == "|"`: in a broken UTF-8 name, a "|" can come with
+    -- stray bytes in one letter.
+    return start .. (letter:gsub("|", "||"))
+  end)
+  return gold and text .. "|r" or text
+end
+
+-- The result rows: icon, name, and kind. The selected row is lit. The
+-- matched letters of each name are gold, also on the selected row. The core
 -- sends as many rows as the visible results setting says; rows are made
 -- when more rows than before first need them.
 local rows = {}
@@ -179,7 +204,7 @@ local function RenderContent(view)
     local row, result = Row(i), view.results[i]
     if result then
       row.icon:SetTexture(result.icon or QUESTION_MARK_ICON)
-      row.name:SetText(result.name)
+      row.name:SetText(ColoredName(result.name, result.matchedLetters))
       row.kind:SetText(result.kindLabel)
       row.selection:SetShown(result.selected)
       row:Show()

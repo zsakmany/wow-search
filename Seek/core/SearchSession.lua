@@ -47,6 +47,9 @@ function ns.NewSearchSession(onViewChanged)
     isOpen = false,
     query = "",
     results = {},
+    -- The positions of the matched letters in a result's name, by the
+    -- result's entry; nil for a result with none (see View).
+    matchedLetters = {},
     selection = 1, -- the selected result's position in all results
     scroll = 0,
     -- The open action list, or nil: the result it belongs to (`entry`),
@@ -112,16 +115,16 @@ local function SameThing(a, b)
 end
 
 -- Matches every entry against the query, by name or else by long text, and
--- ranks the results. With an empty query, the results are the recently
--- picked things instead. The best result is selected, unless `keepSelection`
--- keeps the selected position (when a source's entries change under the
--- player's eyes).
+-- ranks the results. A name match also keeps the name's matched letters.
+-- With an empty query, the results are the recently picked things instead.
+-- The best result is selected, unless `keepSelection` keeps the selected
+-- position (when a source's entries change under the player's eyes).
 --
 -- The action list belongs to the selected result. A new query closes it.
 -- When a source's entries change, it stays open only if the selected
 -- result is still the same thing, and then it shows that thing's new entry.
 function SearchSession:Search(keepSelection)
-  local results = {}
+  local results, matchedLetters = {}, {}
   if self.query == "" then
     results = ns.RecentlyPicked(ns.Entries(), VisibleRows())
   else
@@ -129,19 +132,21 @@ function SearchSession:Search(keepSelection)
     local query = ns.PrepareQuery(self.query)
     local boost = ns.PickBoosts(self.query)
     for _, entry in ipairs(ns.Entries()) do
-      local score = ns.Score(query, entry.match)
+      local score, letters = ns.Score(query, entry.match)
       if score then
-        matches[#matches + 1] = { entry = entry, rank = score + boost(entry), byName = true }
+        matches[#matches + 1] = {
+          entry = entry, rank = score + boost(entry), byName = true, letters = letters,
+        }
       elseif entry.longTextMatch and ns.MatchesLongText(query, entry.longTextMatch) then
         matches[#matches + 1] = { entry = entry, rank = boost(entry), byName = false }
       end
     end
     table.sort(matches, Ranks)
     for i, match in ipairs(matches) do
-      results[i] = match.entry
+      results[i], matchedLetters[match.entry] = match.entry, match.letters
     end
   end
-  self.results = results
+  self.results, self.matchedLetters = results, matchedLetters
   if not keepSelection then
     self.selection, self.scroll = 1, 0
   end
@@ -181,7 +186,12 @@ end
 --   noResults  the "no results" text when the query matches nothing, else nil
 --   results    the visible results (at most as many as the visible
 --              results setting says), top to bottom; each has
---              name, icon, kind, kindLabel, and selected (true on one row)
+--              name, icon, kind, kindLabel, selected (true on one row),
+--              and matchedLetters: the positions of the name's letters that
+--              matched the query, in order, counted in whole letters (nil
+--              for a long text match and for the recently picked things;
+--              the window must not change this list). The search bar shows
+--              these letters in gold.
 --   scroll     how many results are above the first visible row
 --   total      how many results there are in all
 --   actionList the open action list, else nil. It belongs to the selected
@@ -199,6 +209,7 @@ function SearchSession:View()
       kind = entry.kind,
       kindLabel = ns.kinds[entry.kind].label,
       selected = i == self.selection,
+      matchedLetters = self.matchedLetters[entry],
     }
   end
   local actionList

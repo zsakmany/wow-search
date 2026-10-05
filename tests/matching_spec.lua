@@ -21,22 +21,22 @@ local function Names(view)
   return names
 end
 
+local session
+
+-- Registers a fake source with these entries and opens the search bar.
+local function Given(entries)
+  local ns = FakeGame.Started().ns
+  ns.api.RegisterSource({
+    id = "Test.Bags",
+    GetEntries = function()
+      return entries
+    end,
+  })
+  session = ns.NewSearchSession()
+  session:Open()
+end
+
 describe("matching", function()
-  local session
-
-  -- Registers a fake source with these entries and opens the search bar.
-  local function Given(entries)
-    local ns = FakeGame.Started().ns
-    ns.api.RegisterSource({
-      id = "Test.Bags",
-      GetEntries = function()
-        return entries
-      end,
-    })
-    session = ns.NewSearchSession()
-    session:Open()
-  end
-
   it("finds a name from its letters in order, with gaps", function()
     Given({ Item("Hearthstone", 6948), Item("Linen Cloth", 2589) })
     assert.are.same({ "Hearthstone" }, Names(session:SetQuery("hrth")))
@@ -111,5 +111,60 @@ describe("matching", function()
       kinds[i] = result.kindLabel
     end
     assert.are.same({ "Item", "Spell", "Item", "Spell" }, kinds)
+  end)
+end)
+
+-- The letters of a result's name that matched the query: the search bar
+-- shows them in gold. Positions count whole letters, not bytes.
+describe("matched letters", function()
+  -- The matched letter positions of each result row, top to bottom. A row
+  -- with no matched letters gives an empty list.
+  local function MatchedLetters(view)
+    local letters = {}
+    for i, result in ipairs(view.results) do
+      letters[i] = result.matchedLetters or {}
+    end
+    return letters
+  end
+
+  it("gives the letters that the ranking used", function()
+    -- H, then r, t, h right after each other: H(1) r(4) t(5) h(6), not the
+    -- second t (8).
+    Given({ Item("Hearthstone", 6948) })
+    assert.are.same({ { 1, 4, 5, 6 } }, MatchedLetters(session:SetQuery("hrth")))
+  end)
+
+  it("gives the best-scoring way when the name matches in several ways", function()
+    -- "he" fits "Heavy Leather" at "He" (a word start) and at "he" in
+    -- "Leather"; the word start scores higher.
+    Given({ Item("Heavy Leather", 4234) })
+    assert.are.same({ { 1, 2 } }, MatchedLetters(session:SetQuery("he")))
+    -- Not the first fit ("he" in "Shell"), but the word start "He".
+    Given({ Item("Shell Helmet", 1) })
+    assert.are.same({ { 7, 8 } }, MatchedLetters(session:SetQuery("he")))
+  end)
+
+  it("counts whole letters in UTF-8 names, not bytes", function()
+    -- "ö" and "ß" take two bytes each; the letters of "Größe" are 11 to 15.
+    Given({ Item("Trank der Größe", 1) })
+    assert.are.same({ { 11, 12, 13, 14, 15 } }, MatchedLetters(session:SetQuery("größe")))
+  end)
+
+  it("gives no letters for a result found only by its long text", function()
+    local hearthstone = Item("Hearthstone", 6948)
+    hearthstone.longText = "Use: Returns you to Goldshire."
+    Given({ hearthstone, Item("Golden Pearl", 7971) })
+    local view = session:SetQuery("gold")
+    assert.are.same({ "Golden Pearl", "Hearthstone" }, Names(view))
+    assert.are.same({ { 1, 2, 3, 4 }, {} }, MatchedLetters(view))
+  end)
+
+  it("gives no letters for the recently picked things in the empty search bar", function()
+    Given({ Item("Hearthstone", 6948) })
+    session:SetQuery("hearth")
+    session:PressKey("ENTER") -- a pick; it closes the search bar
+    local view = session:Open()
+    assert.are.same({ "Hearthstone" }, Names(view))
+    assert.are.same({ {} }, MatchedLetters(view))
   end)
 end)

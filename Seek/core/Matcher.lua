@@ -14,12 +14,17 @@ local ADJACENT = 8 -- extra for a letter right after the previous match
 local GAP_START = 3 -- cost of a gap between two matched letters
 local GAP_EXTEND = 1 -- cost of each further letter in that gap
 
+-- A pattern for one UTF-8 character. The matcher counts a name's letters
+-- with it, and so must anyone who uses the matched letter positions (the
+-- search bar window).
+ns.LETTER_PATTERN = "[%z\1-\127\194-\244][\128-\191]*"
+
 -- Splits text into UTF-8 characters (names from non-English game clients
 -- have letters such as "ß" that take more than one byte). Only ASCII
 -- letters get lower case; other letters must match exactly.
 local function Characters(text)
   local chars = {}
-  for char in text:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
+  for char in text:gmatch(ns.LETTER_PATTERN) do
     chars[#chars + 1] = #char == 1 and char:lower() or char
   end
   return chars
@@ -89,8 +94,10 @@ function ns.MatchesLongText(query, longText)
   return true
 end
 
--- The score of a name for a query (higher is better), or nil when the name
--- does not match.
+-- The score of a name for a query (higher is better), and the positions of
+-- the name's letters that the best score matched, in order. Positions count
+-- whole letters, not bytes: in "Groß", "ß" is letter 4. Returns nil when the
+-- name does not match.
 function ns.Score(query, name)
   local q, n = query.chars, name.chars
   if #q == 0 then
@@ -108,12 +115,18 @@ function ns.Score(query, name)
   end
   -- best[j]: the best score with the previous query letter matched at
   -- name letter j (nil when it cannot be matched there).
+  -- from[i][j]: the name letter where query letter i - 1 is matched, on the
+  -- best way to match query letter i at name letter j. It gives the matched
+  -- letters at the end.
   local best
+  local from = {}
   for i = 1, #q do
     local current = {}
+    local cameFrom = i > 1 and {} or nil
     -- The best score of an earlier match at least 2 letters back, with the
-    -- cost of the gap up to letter j already taken off.
-    local gapped
+    -- cost of the gap up to letter j already taken off, and where that
+    -- match is.
+    local gapped, gappedAt
     for j = 1, #n do
       if i > 1 then
         if gapped then
@@ -121,7 +134,7 @@ function ns.Score(query, name)
         end
         local before = best[j - 2]
         if before and (not gapped or before - GAP_START > gapped) then
-          gapped = before - GAP_START
+          gapped, gappedAt = before - GAP_START, j - 2
         end
       end
       if n[j] == q[i] then
@@ -129,21 +142,29 @@ function ns.Score(query, name)
         if i == 1 then
           current[j] = score
         else
-          local previous = best[j - 1] and best[j - 1] + ADJACENT
+          local previous, previousAt = best[j - 1] and best[j - 1] + ADJACENT, j - 1
           if gapped and (not previous or gapped > previous) then
-            previous = gapped
+            previous, previousAt = gapped, gappedAt
           end
-          current[j] = previous and previous + score
+          if previous then
+            current[j], cameFrom[j] = previous + score, previousAt
+          end
         end
       end
     end
-    best = current
+    best, from[i] = current, cameFrom
   end
-  local top
+  local top, last
   for j = 1, #n do
     if best[j] and (not top or best[j] > top) then
-      top = best[j]
+      top, last = best[j], j
     end
   end
-  return top
+  -- Follow the best way back from the last query letter to the first.
+  local letters = {}
+  for i = #q, 1, -1 do
+    letters[i] = last
+    last = i > 1 and from[i][last]
+  end
+  return top, letters
 end

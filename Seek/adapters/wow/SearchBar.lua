@@ -80,38 +80,9 @@ end
 -- The result rows: icon, name, and kind. The selected row is lit. The
 -- matched letters of each name are gold, also on the selected row. The core
 -- sends as many rows as the visible results setting says; rows are made
--- when more rows than before first need them.
---
--- Each row tells the core when the mouse moves onto it or off it (the core
--- decides which row shows its tooltip). Rows react to mouse motion only:
--- clicks go through to the window, where they do nothing.
+-- when more rows than before first need them. Rows do not react to the
+-- mouse (yet).
 local rows = {}
-
-local rendering = false -- Render is under way
-
--- Tells the core that the mouse moved onto the result row at position `row`,
--- or off the rows (nil), and shows the new view. Only while the window is
--- shown: a row that hides with the window can get OnLeave then, and the
--- closed session needs nothing (it forgets the row under the mouse when it
--- closes). A row that Render hides or shows under the mouse can get OnLeave
--- or OnEnter in the middle of that Render; the core takes the change at
--- once, and the window shows it one frame later, so that one Render never
--- runs inside another.
-local function Hover(row)
-  if not frame:IsShown() then
-    return
-  end
-  local view = session:HoverResult(row)
-  if not rendering then
-    Render(view)
-    return
-  end
-  C_Timer.After(0, function()
-    if frame:IsShown() then
-      Render(session:View())
-    end
-  end)
-end
 
 local function Row(i)
   if rows[i] then
@@ -121,14 +92,6 @@ local function Row(i)
   row:SetHeight(ROW_HEIGHT)
   row:SetPoint("TOPLEFT", frame, "TOPLEFT", ROW_INSET, -(TOP_HEIGHT - 4) - (i - 1) * ROW_HEIGHT)
   row:SetPoint("RIGHT", frame, "RIGHT", -ROW_INSET, 0)
-  row:SetMouseMotionEnabled(true)
-  row:SetMouseClickEnabled(false)
-  row:SetScript("OnEnter", function()
-    Hover(i)
-  end)
-  row:SetScript("OnLeave", function()
-    Hover(nil)
-  end)
 
   row.selection = row:CreateTexture(nil, "BACKGROUND")
   row.selection:SetAllPoints()
@@ -441,8 +404,6 @@ end
 -- Shows a view state from the core. The tooltip comes last, once the
 -- window is shown or hidden, so that it never belongs to a hidden window.
 function Render(view)
-  local outer = rendering
-  rendering = true
   RenderContent(view)
   RenderKeys(view)
   if view.open then
@@ -463,7 +424,6 @@ function Render(view)
     frame:Hide()
   end
   RenderTooltip(view)
-  rendering = outer
 end
 
 -- Opens the search bar, or closes it when it is open.

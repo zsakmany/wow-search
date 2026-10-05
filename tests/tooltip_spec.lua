@@ -1,8 +1,8 @@
 -- The tooltip, seen from the edge of the core: a fake source gives entries
--- through the public API, the test types a query, presses keys, and moves
--- the mouse over the result rows the way the search bar does, changes the
--- tooltip side setting through the fake settings port, and reads which row
--- shows its tooltip, and on which side, from the view state.
+-- through the public API, the test types a query and presses keys the way
+-- the search bar does, changes the tooltip side setting through the fake
+-- settings port, and reads which row shows its tooltip, and on which side,
+-- from the view state. The mouse does not show tooltips (yet).
 
 local FakeGame = require("tests.fake_game")
 
@@ -70,36 +70,6 @@ describe("the tooltip", function()
     assert.are.equal(2, session:PressKey("UP").tooltip.row)
   end)
 
-  describe("with the mouse over a result row", function()
-    before_each(function()
-      GivenEntries({ Item("Potion 01", 1), Item("Potion 02", 2), Item("Potion 03", 3) })
-      session:Open()
-      session:SetQuery("potion")
-    end)
-
-    it("shows that row's tooltip instead of the selected row's", function()
-      local view = session:HoverResult(3)
-      assert.are.same({ row = 3, side = "right" }, view.tooltip)
-      assert.is_true(view.results[1].selected)
-    end)
-
-    it("keeps that row's tooltip when Up and Down move the selection", function()
-      session:HoverResult(3)
-      assert.are.equal(3, session:PressKey("DOWN").tooltip.row)
-    end)
-
-    it("goes back to the selected row's tooltip when the mouse leaves the rows", function()
-      session:HoverResult(3)
-      session:PressKey("DOWN")
-      assert.are.equal(2, session:HoverResult(nil).tooltip.row)
-    end)
-
-    it("shows the selected row's tooltip when that row no longer shows a result", function()
-      session:HoverResult(3)
-      assert.are.same({ row = 1, side = "right" }, session:SetQuery("potion 02").tooltip)
-    end)
-  end)
-
   describe("the tooltip side setting", function()
     local shown
 
@@ -116,9 +86,7 @@ describe("the tooltip", function()
       session:SetQuery("potion")
       assert.are.equal("right", session:View().tooltip.side)
       assert.is_nil(session:PressKey("TAB").tooltip)
-      session:HoverResult(2)
-      assert.is_nil(session:View().tooltip)
-      assert.are.same({ row = 2, side = "right" }, session:PressKey("ESCAPE").tooltip)
+      assert.are.same({ row = 1, side = "right" }, session:PressKey("ESCAPE").tooltip)
     end)
 
     it("left shows the tooltip on the left, also while the action list is open", function()
@@ -126,13 +94,11 @@ describe("the tooltip", function()
       session:SetQuery("potion")
       assert.are.same({ row = 1, side = "left" }, session:View().tooltip)
       assert.are.same({ row = 1, side = "left" }, session:PressKey("TAB").tooltip)
-      assert.are.same({ row = 2, side = "left" }, session:HoverResult(2).tooltip)
     end)
 
     it("off shows no tooltip", function()
       game:ChangeSetting("tooltipSide", "off")
       assert.is_nil(session:SetQuery("potion").tooltip)
-      assert.is_nil(session:HoverResult(2).tooltip)
     end)
 
     it("changes the tooltip at once while the search bar is open", function()
@@ -152,16 +118,6 @@ describe("the tooltip", function()
       assert.is_not_nil(shown.actionList)
       assert.are.same({ row = 1, side = "left" }, shown.tooltip)
     end)
-  end)
-
-  it("forgets the row under the mouse when the search bar closes", function()
-    GivenEntries({ Item("Potion 01", 1), Item("Potion 02", 2) })
-    session:Open()
-    session:SetQuery("potion")
-    session:HoverResult(2)
-    session:PressKey("ESCAPE")
-    session:Open()
-    assert.are.equal(1, session:SetQuery("potion").tooltip.row)
   end)
 
   it("shows none when there are no results", function()

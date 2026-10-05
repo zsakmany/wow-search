@@ -56,9 +56,6 @@ function ns.NewSearchSession(onViewChanged)
     -- The open action list, or nil: the result it belongs to (`entry`),
     -- that result's actions, and the selected action's position.
     actionList = nil,
-    -- The position of the visible result row under the mouse, top to
-    -- bottom, or nil.
-    hovered = nil,
   }, SearchSession)
   local function Update()
     local view = Changed(session)
@@ -182,8 +179,8 @@ function SearchSession:MoveSelection(step)
 end
 
 -- Which visible row shows its tooltip, and on which side (the tooltip side
--- setting), or nil for no tooltip: the row under the mouse, else the
--- selected row. None while the search bar is closed, with no results, with
+-- setting), or nil for no tooltip: the selected row. (The mouse does not
+-- show tooltips.) None while the search bar is closed, with no results, with
 -- the setting off, or while the action list is open on the right side,
 -- where the list shows too.
 local function Tooltip(session, rows)
@@ -192,11 +189,7 @@ local function Tooltip(session, rows)
     or (side == "right" and session.actionList) then
     return nil
   end
-  local row = session.selection - session.scroll
-  if session.hovered and rows[session.hovered] then
-    row = session.hovered
-  end
-  return { row = row, side = side }
+  return { row = session.selection - session.scroll, side = side }
 end
 
 -- The view state for the search bar. A new table on each call, so the
@@ -278,7 +271,6 @@ end
 function SearchSession:Close()
   self.isOpen = false
   self.actionList = nil
-  self.hovered = nil
   return Changed(self)
 end
 
@@ -286,14 +278,6 @@ end
 function SearchSession:SetQuery(query)
   self.query = query
   self:Search()
-  return Changed(self)
-end
-
--- The mouse moved onto the visible result row at position `row`, top to
--- bottom, or off the result rows (nil). It changes only which row shows
--- its tooltip, not the selection.
-function SearchSession:HoverResult(row)
-  self.hovered = row
   return Changed(self)
 end
 

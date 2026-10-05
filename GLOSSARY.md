@@ -24,6 +24,10 @@ _Avoid_: Sub-plugin, database, extension
 One searchable thing that a source supplies, such as one item or one quest.
 _Avoid_: Record, document, item (item means a WoW item)
 
+**Tooltip**:
+The game's own info box for a thing, which the search bar shows beside the selected result. Not the same as long text, even when an item's long text comes from its tooltip.
+_Avoid_: Preview, popup, card
+
 **Long text**:
 An entry's optional longer text, besides its name: an item's tooltip text, a spell's description, or a quest's description and objectives. The query matches it only at word starts, never fuzzy, and a name match always ranks above a long text match.
 _Avoid_: Description, body, tooltip (for the general idea)

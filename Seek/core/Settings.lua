@@ -20,7 +20,7 @@ ns.settings = {
   -- How many result rows the search bar shows at once, and how many
   -- recently picked things the empty search bar shows.
   visibleResults = { default = 8, min = 3, max = 15 },
-  -- Where the search bar shows the WoW tooltip of the hovered or selected
+  -- Where the search bar shows the WoW tooltip of the selected
   -- result: to its right, to its left, or nowhere.
   tooltipSide = { default = "right", values = { "right", "left", "off" } },
 }

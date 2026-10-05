@@ -72,6 +72,10 @@ _Avoid_: Do, activate, execute, cast
 The one action a result runs when the player presses Enter. It is always a show action; a result with no show action has no main action.
 _Avoid_: Default action, primary action
 
+**Use key**:
+The key that runs the selected result's first use action without opening the action list: Cmd+Enter on a Mac, Ctrl+Enter on Windows. Combat blocks it, like every use action.
+_Avoid_: Shortcut, hotkey, quick use
+
 **Action list**:
-The list of all of a result's actions, the main action first, which the player opens from the result. It opens with the first use action selected, or with the main action when the result has no use action.
+The list of all of a result's actions, the main action first, which the player opens from the result.
 _Avoid_: Context menu, secondary actions

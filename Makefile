@@ -2,6 +2,8 @@
 #   make setup   install Lua 5.1, LuaRocks, busted and luacheck into .tools/
 #   make check   run luacheck and the busted tests
 #   make link    symlink the Seek/ addon folder into WoW's AddOns folder
+#   make link-probe  symlink the throwaway SecureOpenProbe prototype (issue #39)
+#                    into the same AddOns folder
 
 TOOLS := .tools
 BIN   := $(TOOLS)/lua/bin
@@ -15,7 +17,7 @@ LUACHECK_VERSION  := 1.2.0-1
 #   make link WOW_ADDONS="/Applications/World of Warcraft/_forever_/Interface/AddOns"
 WOW_ADDONS ?= /Applications/World of Warcraft/_classic_beta_/Interface/AddOns
 
-.PHONY: setup check lint test link
+.PHONY: setup check lint test link link-probe
 
 setup:
 	@case "$(CURDIR)" in *" "*) \
@@ -45,4 +47,18 @@ link:
 		echo "error: $(WOW_ADDONS)/Seek already exists and is not a link to this project. Remove it first." >&2; exit 1; \
 	else \
 		ln -s "$(CURDIR)/Seek" "$(WOW_ADDONS)/Seek" && echo "linked: $(WOW_ADDONS)/Seek -> $(CURDIR)/Seek"; \
+	fi
+
+# The throwaway research prototype for issue #39 (prototypes/SecureOpenProbe/).
+# Same AddOns folder and same "never replace" rule as `make link`.
+PROBE := SecureOpenProbe
+
+link-probe:
+	@test -d "$(WOW_ADDONS)" || { echo "error: no AddOns folder at $(WOW_ADDONS). Set WOW_ADDONS." >&2; exit 1; }
+	@if [ -L "$(WOW_ADDONS)/$(PROBE)" ] && [ "$$(readlink "$(WOW_ADDONS)/$(PROBE)")" = "$(CURDIR)/prototypes/$(PROBE)" ]; then \
+		echo "already linked: $(WOW_ADDONS)/$(PROBE) -> $(CURDIR)/prototypes/$(PROBE)"; \
+	elif [ -e "$(WOW_ADDONS)/$(PROBE)" ] || [ -L "$(WOW_ADDONS)/$(PROBE)" ]; then \
+		echo "error: $(WOW_ADDONS)/$(PROBE) already exists and is not a link to this project. Remove it first." >&2; exit 1; \
+	else \
+		ln -s "$(CURDIR)/prototypes/$(PROBE)" "$(WOW_ADDONS)/$(PROBE)" && echo "linked: $(WOW_ADDONS)/$(PROBE) -> $(CURDIR)/prototypes/$(PROBE)"; \
 	fi

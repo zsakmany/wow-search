@@ -36,6 +36,16 @@ files["Seek/adapters/wow/"] = {
   },
 }
 
+-- Throwaway research prototypes (separate WoW addons, not part of Seek): the
+-- same rules as the WoW adapters, with their own globals.
+files["prototypes/"] = {
+  ignore = { "112", "113" }, -- mutating / accessing an undefined global
+  globals = {
+    -- SecureOpenProbe's /sop slash command (issue #39)
+    "SLASH_SECUREOPENPROBE1",
+  },
+}
+
 files["tests/"] = {
   std = "+busted",
 }

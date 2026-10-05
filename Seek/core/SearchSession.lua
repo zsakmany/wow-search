@@ -33,9 +33,14 @@ function ns.NewSearchSession(onViewChanged)
   return session
 end
 
--- Best score first. Equal scores sort by name, then kind, then the entry's
--- fixed position, so the same query always gives the same order.
+-- A name match always ranks above a long text match. Then best score first
+-- (long text matches all have the same score). Equal scores sort by name,
+-- then kind, then the entry's fixed position, so the same query always gives
+-- the same order.
 local function Ranks(a, b)
+  if a.byName ~= b.byName then
+    return a.byName
+  end
   if a.score ~= b.score then
     return a.score > b.score
   end
@@ -52,9 +57,10 @@ local function Ranks(a, b)
   return x.order < y.order
 end
 
--- Matches every entry against the query and ranks the results. The best
--- result is selected, unless `keepSelection` keeps the selected position
--- (when a source's entries change under the player's eyes).
+-- Matches every entry against the query, by name or else by long text, and
+-- ranks the results. The best result is selected, unless `keepSelection`
+-- keeps the selected position (when a source's entries change under the
+-- player's eyes).
 function SearchSession:Search(keepSelection)
   local matches = {}
   if self.query ~= "" then
@@ -62,7 +68,9 @@ function SearchSession:Search(keepSelection)
     for _, entry in ipairs(ns.Entries()) do
       local score = ns.Score(query, entry.match)
       if score then
-        matches[#matches + 1] = { entry = entry, score = score }
+        matches[#matches + 1] = { entry = entry, score = score, byName = true }
+      elseif entry.longTextMatch and ns.MatchesLongText(query, entry.longTextMatch) then
+        matches[#matches + 1] = { entry = entry, score = 0, byName = false }
       end
     end
     table.sort(matches, Ranks)

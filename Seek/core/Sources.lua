@@ -11,7 +11,11 @@
 --   icon    a texture file ID or path
 --   gameID  the game's ID for the thing, such as the item ID
 --   owner   the character that owns it
--- Seek rejects (leaves out) an entry with no name or an unknown kind.
+--   longText  plain text that the query matches at word starts, such as an
+--             item's tooltip text (optional; no color codes or links: Seek
+--             keeps it in the saved copy)
+-- Seek rejects (leaves out) an entry with no name or an unknown kind, and
+-- leaves out long text that is not a string.
 --
 -- When its data changes, a source calls NotifyChanged(id). Seek then reads
 -- it again and replaces all of its old entries.
@@ -68,11 +72,12 @@ local function Accept(entry)
     icon = entry.icon,
     gameID = entry.gameID,
     owner = entry.owner,
+    longText = type(entry.longText) == "string" and entry.longText or nil,
   }
 end
 
--- The entry that search uses: an accepted copy with its name prepared for
--- matching. This is the slow part of a read.
+-- The entry that search uses: an accepted copy with its name and long text
+-- prepared for matching. This is the slow part of a read.
 local function Prepare(copy)
   return {
     name = copy.name,
@@ -81,6 +86,7 @@ local function Prepare(copy)
     gameID = copy.gameID,
     owner = copy.owner,
     match = ns.PrepareName(copy.name),
+    longTextMatch = copy.longText and ns.PrepareLongText(copy.longText),
     sortName = copy.name:lower(),
   }
 end
@@ -216,9 +222,10 @@ ns.WatchCombat(function(inCombat)
   end
 end)
 
--- Every source's current entries, in one list. Each has the fields above,
--- plus `match` (the prepared name), `sortName`, and `order` (a fixed
--- position), for matching and a stable tie-break.
+-- Every source's current entries, in one list. Each has the fields above
+-- (but not the long text itself), plus `match` (the prepared name),
+-- `longTextMatch` (the prepared long text, or nil), `sortName`, and `order`
+-- (a fixed position), for matching and a stable tie-break.
 function ns.Entries()
   return allEntries
 end

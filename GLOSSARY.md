@@ -24,6 +24,10 @@ _Avoid_: Sub-plugin, database, extension
 One searchable thing that a source supplies, such as one item or one quest.
 _Avoid_: Record, document, item (item means a WoW item)
 
+**Long text**:
+An entry's optional longer text, besides its name: an item's tooltip text, a spell's description, or a quest's description and objectives. The query matches it only at word starts, never fuzzy, and a name match always ranks above a long text match.
+_Avoid_: Description, body, tooltip (for the general idea)
+
 **Saved copy**:
 The entries that Seek keeps per character between game sessions. Search uses it right after a reload and in combat, until Seek reads the sources again outside combat.
 _Avoid_: Cache, database, snapshot

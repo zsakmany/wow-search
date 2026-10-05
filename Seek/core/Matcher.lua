@@ -2,6 +2,10 @@
 -- order, with gaps allowed. Case is ignored. A letter at a word start, and a
 -- letter right after the previous matched letter, score higher; gaps cost a
 -- little. Of all the ways the query fits the name, the best one counts.
+--
+-- Word-start matching on long text (no fuzzy matching there, so that long
+-- text does not fill the results with noise): each query word must match the
+-- start of a word in the text. Case is ignored here too.
 local _, ns = ...
 
 local MATCH = 16 -- each matched letter
@@ -37,9 +41,52 @@ function ns.PrepareName(name)
   return { chars = chars, starts = starts }
 end
 
--- Prepares the query once for all names.
+-- The words of a text, in lower case (ASCII letters only, as for names),
+-- with one space before each word. A word is a run of letters and digits,
+-- ASCII or not. Typographic punctuation (U+2000 to U+206F: quotes such as
+-- „“ and ’, dashes, "…") and the no-break space (U+00A0) also separate
+-- words; other non-ASCII characters count as letters.
+local function Words(text)
+  text = text:gsub("[A-Z]", string.lower)
+    :gsub("\226\128[\128-\191]", " ")
+    :gsub("\226\129[\128-\175]", " ")
+    :gsub("\194\160", " ")
+  local words = {}
+  for word in text:gmatch("[%w\128-\255]+") do
+    words[#words + 1] = " " .. word
+  end
+  return words
+end
+
+-- Prepares a long text once, so that each query matches it fast: its words,
+-- each after one space, in one string. A query word then starts a word in
+-- the text exactly where " " .. word is found. Returns nil for a text with
+-- no words.
+function ns.PrepareLongText(text)
+  local words = Words(text)
+  if #words == 0 then
+    return nil
+  end
+  return table.concat(words)
+end
+
+-- Prepares the query once for all names and long texts.
 function ns.PrepareQuery(query)
-  return { chars = Characters(query) }
+  return { chars = Characters(query), words = Words(query) }
+end
+
+-- Whether each query word starts a word in the prepared long text. A query
+-- with no words matches no long text.
+function ns.MatchesLongText(query, longText)
+  if #query.words == 0 then
+    return false
+  end
+  for _, word in ipairs(query.words) do
+    if not longText:find(word, 1, true) then
+      return false
+    end
+  end
+  return true
 end
 
 -- The score of a name for a query (higher is better), or nil when the name

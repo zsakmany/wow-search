@@ -111,7 +111,7 @@ describe("the action list", function()
     assert.is_nil(view.actionList)
   end)
 
-  it("runs the main action on Enter when the player has not moved in a quest's list (no use action)", function()
+  it("runs the main action on Enter when the player has not moved in the list", function()
     GivenSource("Test.Quests", { Quest("The Defias Brotherhood", 65) })
     session:Open()
     session:SetQuery("defias")

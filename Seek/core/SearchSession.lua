@@ -346,13 +346,33 @@ function SearchSession:RunMainAction()
   return self:View()
 end
 
--- Opens the action list of the selected result, with its main action
--- selected. With no results, or for a faded result (no actions), nothing
--- happens.
+-- The position of the first use action in `actions`, or 1 (the main action)
+-- when there is none.
+local function FirstUseAction(actions)
+  for i, action in ipairs(actions) do
+    if action.type == "use" then
+      return i
+    end
+  end
+  return 1
+end
+
+-- Opens the action list of the selected result, with its first use action
+-- selected, or its main action when it has no use action: Enter on the
+-- results already runs the main action, so Tab, Enter uses the thing. With
+-- no results, or for a faded result (no actions), nothing happens.
+--
+-- Why not a shortcut such as Shift+Enter that runs the use action from the
+-- results: while the text box has keyboard focus, no key binding fires, and
+-- a use action runs only from a key binding's real key press on the secure
+-- button (adapters/wow/SearchBar.lua, "List keys"). The text box would have
+-- to give up the keyboard on every Shift press, which breaks capital
+-- letters and Shift-selection in it.
 function SearchSession:OpenActionList()
   local entry = self.results[self.selection]
   if entry and ns.HasActions(entry) then
-    self.actionList = { entry = entry, actions = ns.EntryActions(entry), selection = 1 }
+    local actions = ns.EntryActions(entry)
+    self.actionList = { entry = entry, actions = actions, selection = FirstUseAction(actions) }
   end
 end
 

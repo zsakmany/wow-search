@@ -476,8 +476,11 @@ box:SetScript("OnEnterPressed", function()
 end)
 
 -- Tab opens the selected result's action list; with no results it does
--- nothing. This replaces the template's handler, which would move the focus
--- to another text box.
+-- nothing. The list opens on the first use action, which the core has the
+-- action adapter prepare before it returns the view, so the list keys bind
+-- Enter to the secure button at once: Tab, Enter uses the thing. This
+-- replaces the template's handler, which would move the focus to another
+-- text box.
 box:SetScript("OnTabPressed", function()
   Render(session:PressKey("TAB"))
 end)

@@ -103,13 +103,12 @@ describe("picks", function()
     local entries = { Item("Hearthstone", 6948, true), Item("Hearty Rhino Hide", 8171, true) }
 
     -- The player opens the action list of "Hearty Rhino Hide" for "hea",
-    -- moves down to its use action, and presses Enter.
+    -- which opens on its use action, and presses Enter.
     local function UseFromActionList()
       session:Open()
       session:SetQuery("hea")
       session:PressKey("DOWN")
       session:PressKey("TAB")
-      session:PressKey("DOWN")
       return session:PressKey("ENTER")
     end
 

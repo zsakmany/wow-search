@@ -37,11 +37,15 @@ The entries that Seek keeps per character between game sessions. Search uses it 
 _Avoid_: Cache, database, snapshot
 
 **Kind**:
-What sort of game thing an entry is, such as item, spell, or quest. Actions belong to the kind, so all entries of one kind have the same actions, whatever their source.
+What sort of game thing an entry is, such as item, spell, or quest. Actions belong to the kind, whatever the entry's source; an entry gets only those of its kind's actions that it can do (only a usable item gets the use action).
 _Avoid_: Type, category
 
+**Owner**:
+The character that has an entry's thing, named as "Name-Realm". The owner can be another character of the player, for example for an item in another character's bags.
+_Avoid_: Character (alone), alt, toon
+
 **Result**:
-An entry that matches the current query and is shown in the search bar. While the query is empty, the results are the recently picked things.
+An entry that matches the current query and is shown in the search bar. While the query is empty, the results are the recently picked things. A result with no actions is faded: the player can select it to see its tooltip, but cannot act on it or pick it.
 _Avoid_: Hit, match, suggestion
 
 **Pick**:

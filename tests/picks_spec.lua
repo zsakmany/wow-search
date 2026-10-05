@@ -438,14 +438,14 @@ describe("picks", function()
       }
 
       it("still loads, with no picks", function()
-        StartWith({ version = 1, sources = savedCopy })
+        StartWith({ version = 2, sources = savedCopy })
         assert.are.same({ "Hearthstone" }, Search("hearth"))
         assert.are.equal(HINT, session:Open().hint)
       end)
 
       it("with picks of an unknown version still loads the saved copy, and ignores the picks", function()
         StartWith({
-          version = 1,
+          version = 2,
           sources = savedCopy,
           picks = { version = 99, list = { { kind = "item", gameID = 6948, query = "h", time = game.clock:Now() } } },
         })

@@ -176,4 +176,31 @@ describe("saved data from before other characters' bags", function()
     assert.are.same({ "Hearthstone | Item" }, Search(session, "hearth"))
     assert.are.same({ "Silk Cloth | Item" }, Search(session, "silk"))
   end)
+
+  it("ignores an earlier version's saved copy, so the player's own items never show faded", function()
+    -- That copy's items have no inBags, and its owners can be named
+    -- differently ("Alice" early in the login). A reload in combat must not
+    -- show them as another character's items with no actions.
+    local game = FakeGame.New({ character = "Alice-Stormrage", inCombat = true })
+    game.storage.data = {
+      version = 1,
+      sources = {
+        ["Seek.Bags"] = {
+          { name = "Hearthstone", kind = "item", icon = 134400, gameID = 6948, owner = "Alice" },
+        },
+      },
+    }
+    game.Seek.RegisterSource({
+      id = game.ns.BAG_SOURCE_ID,
+      GetEntries = function()
+        return { Item("Hearthstone", 6948, "Alice-Stormrage") }
+      end,
+    })
+    game:Start()
+    local session = game.ns.NewSearchSession()
+    assert.are.same({}, Search(session, "hearth"))
+    game:LeaveCombat()
+    game:RunSteps()
+    assert.are.same({ "Hearthstone | Item" }, Search(session, "hearth"))
+  end)
 end)

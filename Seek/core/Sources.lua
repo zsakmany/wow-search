@@ -41,8 +41,10 @@ local _, ns = ...
 local kinds = ns.kinds
 
 -- Change this when the saved copy's shape changes; Seek then ignores an
--- older saved copy and reads every source again.
-local SAVED_VERSION = 1
+-- older saved copy and reads every source again. Version 2: bag items have
+-- inBags (without it they would have no actions), and owners are named the
+-- same way for every source.
+local SAVED_VERSION = 2
 
 -- How many entries one step prepares. The scheduler runs as many steps per
 -- frame as its time budget allows.

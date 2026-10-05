@@ -37,11 +37,11 @@ What sort of game thing an entry is, such as item, spell, or quest. Actions belo
 _Avoid_: Type, category
 
 **Result**:
-An entry that matches the current query and is shown in the search bar.
+An entry that matches the current query and is shown in the search bar. While the query is empty, the results are the recently picked things.
 _Avoid_: Hit, match, suggestion
 
 **Pick**:
-One time that the player ran an action on a result, which Seek remembers so it can rank that thing higher later. A blocked action is not a pick.
+One time that the player ran an action on a result, which Seek remembers so it can rank that thing higher later. A blocked action is not a pick. Seek keeps the picks per character, next to the saved copy.
 _Avoid_: History, usage, selection (selection is the highlighted row)
 
 **Action**:

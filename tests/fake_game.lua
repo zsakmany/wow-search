@@ -5,9 +5,11 @@
 --              variables
 --   scheduler  runs work all at once, or, with `stepByStep`, one step each
 --              time the test asks
+--   clock      a fake clock that stands still until the test moves it on; a
+--              reload keeps it, as the game's time goes on
 -- The test acts as the game: it registers fake sources through `game.Seek`
 -- (the public API), starts the core (as WoW does when the saved variables
--- are loaded), enters and leaves combat, and reloads.
+-- are loaded), enters and leaves combat, lets days pass, and reloads.
 
 local load_core = require("tests.load_core")
 
@@ -41,6 +43,18 @@ local function NewCombatState(inCombat)
     return self.inCombat
   end
   return combat
+end
+
+local DAY = 24 * 60 * 60
+
+-- The time is in seconds. It starts on a fixed day, so that every run of the
+-- tests sees the same times.
+local function NewClock()
+  local clock = { now = 1700000000 }
+  function clock:Now()
+    return self.now
+  end
+  return clock
 end
 
 -- Runs the steps of each piece of work in the order the work came. Without
@@ -93,6 +107,7 @@ local M = {}
 --   inCombat    the player is in combat
 --   stepByStep  the scheduler runs one step each time the test asks
 --   storage     the storage to use (a reload passes the old game's)
+--   clock       the clock to use (a reload passes the old game's)
 function M.New(options)
   options = options or {}
   local ns = load_core()
@@ -102,10 +117,12 @@ function M.New(options)
     combat = NewCombatState(options.inCombat),
     storage = options.storage or NewStorage(),
     scheduler = NewScheduler(options.stepByStep),
+    clock = options.clock or NewClock(),
   }, FakeGame)
   ns.SetCombatState(game.combat)
   ns.SetStorage(game.storage)
   ns.SetScheduler(game.scheduler)
+  ns.SetClock(game.clock)
   return game
 end
 
@@ -132,6 +149,11 @@ function FakeGame:LeaveCombat()
   self.ns.CombatEnded()
 end
 
+-- Moves the clock on by `days` days (a fraction of a day works too).
+function FakeGame:PassDays(days)
+  self.clock.now = self.clock.now + days * DAY
+end
+
 -- Runs one step of the scheduler's work. Returns false when there was none.
 function FakeGame:Step()
   return self.scheduler:Step()
@@ -147,8 +169,8 @@ function FakeGame:RunSteps()
   self.scheduler:RunAll()
 end
 
--- A /reload: a new game with a freshly loaded core and the same storage,
--- not started yet. The player stays in or out of combat, unless
+-- A /reload: a new game with a freshly loaded core, the same storage, and
+-- the same clock, not started yet. The player stays in or out of combat, unless
 -- `options.inCombat` says otherwise.
 function FakeGame:Reload(options)
   options = options or {}
@@ -156,7 +178,8 @@ function FakeGame:Reload(options)
   if inCombat == nil then
     inCombat = self.combat.inCombat
   end
-  return M.New({ inCombat = inCombat, stepByStep = options.stepByStep, storage = self.storage })
+  return M.New({ inCombat = inCombat, stepByStep = options.stepByStep, storage = self.storage,
+    clock = self.clock })
 end
 
 return M

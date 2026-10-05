@@ -9,7 +9,7 @@
 local _, ns = ...
 
 local MATCH = 16 -- each matched letter
-local WORD_START = 12 -- extra for a letter that starts a word
+local WORD_START = 12 -- extra for a letter that starts a word (Picks.lua relies on it)
 local ADJACENT = 8 -- extra for a letter right after the previous match
 local GAP_START = 3 -- cost of a gap between two matched letters
 local GAP_EXTEND = 1 -- cost of each further letter in that gap

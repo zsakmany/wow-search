@@ -56,9 +56,10 @@ local allEntries = {} -- every source's entries in one list
 local watchers = {}
 local started = false
 
--- The saved copy, as the Storage port keeps it. `sources` maps a source id
--- to its entries, with only the fields that a source gives. It also keeps
--- the entries of sources that have not registered (yet) in this session.
+-- The saved copy: its fields in the saved data that the Storage port keeps.
+-- `sources` maps a source id to its entries, with only the fields that a
+-- source gives. It also keeps the entries of sources that have not
+-- registered (yet) in this session.
 local saved = { version = SAVED_VERSION, sources = {} }
 
 -- Copies an entry from a source, or returns nil to reject it. Seek keeps
@@ -185,10 +186,9 @@ local function UseSavedCopy(id)
   return true
 end
 
--- Takes the saved data from the Storage port, if it has the right shape.
+-- Takes the saved copy from the saved data, if it has the right shape.
 -- Each entry is accepted again, as if a source gave it.
-local function LoadSavedCopy()
-  local data = ns.LoadSaved()
+local function LoadSavedCopy(data)
   if type(data) ~= "table" or data.version ~= SAVED_VERSION or type(data.sources) ~= "table" then
     return
   end
@@ -205,14 +205,17 @@ end
 
 -- Starts Seek when the storage is ready (in WoW, when the saved variables
 -- are loaded, after all of the addon's files have run): loads the saved
--- copy, so search works at once, and reads the stale sources (all of them
--- after a reload) when Seek may read. Later calls do nothing.
+-- copy, so search works at once, and the picks (Picks.lua), and reads the
+-- stale sources (all of them after a reload) when Seek may read. Later
+-- calls do nothing.
 function ns.Start()
   if started then
     return
   end
   started = true
-  LoadSavedCopy()
+  local data = ns.LoadSaved()
+  LoadSavedCopy(data)
+  ns.LoadPicks(data)
   for _, state in ipairs(sources) do
     UseSavedCopy(state.source.id)
   end

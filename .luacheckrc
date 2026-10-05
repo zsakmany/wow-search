@@ -21,7 +21,8 @@ files["Seek/adapters/wow/"] = {
     "BINDING_NAME_SEEK_TOGGLE", "Seek_ToggleSearchBar",
     -- The /seek slash command
     "SLASH_SEEK1",
-    -- The saved copy of the entries, per character (the TOC's saved variable)
+    -- The saved copy of the entries and the picks, per character (the TOC's
+    -- saved variable)
     "SeekSavedCopy",
     -- The binding sets that got the suggested key, account-wide (the TOC's
     -- saved variable)

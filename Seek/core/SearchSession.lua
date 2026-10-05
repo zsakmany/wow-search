@@ -11,6 +11,9 @@ local L = ns.L
 -- The search bar shows this many results at a time; the rest scroll.
 local VISIBLE_ROWS = 8
 
+-- The empty search bar shows this many recently picked things.
+local RECENT_PICKS = 8
+
 local SearchSession = {}
 SearchSession.__index = SearchSession
 
@@ -69,16 +72,18 @@ function ns.NewSearchSession(onViewChanged)
   return session
 end
 
--- A name match always ranks above a long text match. Then best score first
--- (long text matches all have the same score). Equal scores sort by name,
--- then kind, then the entry's fixed position, so the same query always gives
--- the same order.
+-- A name match always ranks above a long text match. Then best rank first:
+-- the match score (long text matches all have the same score) plus the
+-- boost from the player's picks (Picks.lua), so picks reorder results only
+-- inside each of the two groups. Equal ranks sort by name, then kind, then
+-- the entry's fixed position, so the same query always gives the same
+-- order.
 local function Ranks(a, b)
   if a.byName ~= b.byName then
     return a.byName
   end
-  if a.score ~= b.score then
-    return a.score > b.score
+  if a.rank ~= b.rank then
+    return a.rank > b.rank
   end
   local x, y = a.entry, b.entry
   if x.sortName ~= y.sortName then
@@ -101,7 +106,8 @@ local function SameThing(a, b)
 end
 
 -- Matches every entry against the query, by name or else by long text, and
--- ranks the results. The best result is selected, unless `keepSelection`
+-- ranks the results. With an empty query, the results are the recently
+-- picked things instead. The best result is selected, unless `keepSelection`
 -- keeps the selected position (when a source's entries change under the
 -- player's eyes).
 --
@@ -109,22 +115,25 @@ end
 -- When a source's entries change, it stays open only if the selected
 -- result is still the same thing, and then it shows that thing's new entry.
 function SearchSession:Search(keepSelection)
-  local matches = {}
-  if self.query ~= "" then
+  local results = {}
+  if self.query == "" then
+    results = ns.RecentlyPicked(ns.Entries(), RECENT_PICKS)
+  else
+    local matches = {}
     local query = ns.PrepareQuery(self.query)
+    local boost = ns.PickBoosts(self.query)
     for _, entry in ipairs(ns.Entries()) do
       local score = ns.Score(query, entry.match)
       if score then
-        matches[#matches + 1] = { entry = entry, score = score, byName = true }
+        matches[#matches + 1] = { entry = entry, rank = score + boost(entry), byName = true }
       elseif entry.longTextMatch and ns.MatchesLongText(query, entry.longTextMatch) then
-        matches[#matches + 1] = { entry = entry, score = 0, byName = false }
+        matches[#matches + 1] = { entry = entry, rank = boost(entry), byName = false }
       end
     end
     table.sort(matches, Ranks)
-  end
-  local results = {}
-  for i, match in ipairs(matches) do
-    results[i] = match.entry
+    for i, match in ipairs(matches) do
+      results[i] = match.entry
+    end
   end
   self.results = results
   if not keepSelection then
@@ -161,7 +170,8 @@ end
 -- window can keep it without seeing later changes:
 --   open       whether the search bar is open
 --   query      the query
---   hint       the hint text while the query is empty, else nil
+--   hint       the hint text while the query is empty and there are no
+--              results (no recently picked things), else nil
 --   noResults  the "no results" text when the query matches nothing, else nil
 --   results    the visible results (at most 8), top to bottom; each has
 --              name, icon, kind, kindLabel, and selected (true on one row)
@@ -201,7 +211,7 @@ function SearchSession:View()
   return {
     open = self.isOpen,
     query = self.query,
-    hint = self.query == "" and L.HINT or nil,
+    hint = self.query == "" and #self.results == 0 and L.HINT or nil,
     noResults = self.query ~= "" and #self.results == 0 and L.NO_RESULTS or nil,
     results = rows,
     scroll = self.scroll,
@@ -249,6 +259,7 @@ function SearchSession:RunMainAction()
   end
   self:Close()
   ns.RunAction(ns.MainAction(entry), entry)
+  ns.RecordPick(entry, self.query)
   return self:View()
 end
 
@@ -278,6 +289,7 @@ function SearchSession:RunListAction()
   end
   self:Close()
   ns.RunAction(action, list.entry)
+  ns.RecordPick(list.entry, self.query)
   return self:View()
 end
 

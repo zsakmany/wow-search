@@ -13,8 +13,10 @@ core\Actions.lua
 core\Combat.lua
 core\Storage.lua
 core\Scheduler.lua
+core\Clock.lua
 core\Matcher.lua
 core\Sources.lua
+core\Picks.lua
 core\SearchSession.lua
 
 # WoW adapters. PublicApi.lua first: it publishes the global `Seek` that
@@ -23,6 +25,7 @@ core\SearchSession.lua
 adapters\wow\PublicApi.lua
 adapters\wow\CombatState.lua
 adapters\wow\Storage.lua
+adapters\wow\Clock.lua
 adapters\wow\Scheduler.lua
 adapters\wow\Actions.lua
 adapters\wow\SearchBar.lua

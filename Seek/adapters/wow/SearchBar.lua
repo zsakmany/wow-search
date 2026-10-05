@@ -195,21 +195,28 @@ end
 -- The WoW tooltip of one result row: Seek only asks the game to show its
 -- own tooltip for the thing, so it works in combat too. Items show the
 -- general tooltip of the item ID (not a bag slot), spells the spell's, and
--- quests the tooltip of the quest's link. Seek uses GameTooltip only while
--- it owns it (owned by the window), and leaves it alone when another frame
--- has taken it.
+-- quests the tooltip of the quest's link.
+--
+-- Seek has its own tooltip frame, made from Blizzard's GameTooltip template.
+-- The shared GameTooltip is used by the whole game: when the mouse moves
+-- over the world, a unit, or another window, that code takes GameTooltip
+-- and hides or replaces Seek's tooltip. Seek's own frame is never touched
+-- by other code.
+local tooltip = CreateFrame("GameTooltip", "SeekResultTooltip", UIParent, "GameTooltipTemplate")
+tooltip:SetFrameStrata("TOOLTIP")
+
 local tooltipShown -- what the tooltip shows for Seek now, or nil (see RenderTooltip)
 
--- Each kind (core/Kinds.lua) and how to fill GameTooltip with the tooltip
+-- Each kind (core/Kinds.lua) and how to fill Seek's tooltip with the tooltip
 -- of a thing of that kind, from its game ID. Each returns false when the
 -- game has nothing to show yet (a quest without a link).
 local setTooltip = {
   item = function(itemID)
-    GameTooltip:SetItemByID(itemID)
+    tooltip:SetItemByID(itemID)
     return true
   end,
   spell = function(spellID)
-    GameTooltip:SetSpellByID(spellID)
+    tooltip:SetSpellByID(spellID)
     return true
   end,
   quest = function(questID)
@@ -217,49 +224,49 @@ local setTooltip = {
     if not link then
       return false
     end
-    GameTooltip:SetHyperlink(link)
+    tooltip:SetHyperlink(link)
     return true
   end,
 }
 
 local function HideTooltip()
   tooltipShown = nil
-  if GameTooltip:IsOwned(frame) then
-    GameTooltip:Hide()
+  if tooltip:IsOwned(frame) then
+    tooltip:Hide()
   end
 end
 
 -- Shows the tooltip of the row that the view says, to the right or the
 -- left of the window, its top level with the row's top; or hides it. The
--- core decides when there is one (the row under the mouse, else the
--- selected row; none while the action list is open on the right side).
+-- core decides when there is one (the selected row; none while the
+-- action list is open on the right side).
 local function RenderTooltip(view)
-  local tooltip = view.tooltip
-  local result = tooltip and view.results[tooltip.row]
+  local wanted = view.tooltip
+  local result = wanted and view.results[wanted.row]
   if not result then
     HideTooltip()
     return
   end
   -- The same thing at the same place: leave it as it is, so it does not
   -- flicker on each key press.
-  local shown = table.concat({ result.kind, tostring(result.gameID), tooltip.row, tooltip.side }, ":")
-  if shown == tooltipShown and GameTooltip:IsOwned(frame) then
+  local shown = table.concat({ result.kind, tostring(result.gameID), wanted.row, wanted.side }, ":")
+  if shown == tooltipShown and tooltip:IsOwned(frame) then
     return
   end
-  local row = rows[tooltip.row]
-  GameTooltip:SetOwner(frame, "ANCHOR_NONE")
-  GameTooltip:ClearAllPoints()
-  if tooltip.side == "left" then
-    GameTooltip:SetPoint("TOPRIGHT", row, "TOPLEFT", -(ROW_INSET + TOOLTIP_GAP), 0)
+  local row = rows[wanted.row]
+  tooltip:SetOwner(frame, "ANCHOR_NONE")
+  tooltip:ClearAllPoints()
+  if wanted.side == "left" then
+    tooltip:SetPoint("TOPRIGHT", row, "TOPLEFT", -(ROW_INSET + TOOLTIP_GAP), 0)
   else
-    GameTooltip:SetPoint("TOPLEFT", row, "TOPRIGHT", ROW_INSET + TOOLTIP_GAP, 0)
+    tooltip:SetPoint("TOPLEFT", row, "TOPRIGHT", ROW_INSET + TOOLTIP_GAP, 0)
   end
   local set = setTooltip[result.kind]
   if not (set and set(result.gameID)) then
     HideTooltip()
     return
   end
-  GameTooltip:Show()
+  tooltip:Show()
   tooltipShown = shown
 end
 

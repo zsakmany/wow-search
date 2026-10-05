@@ -40,6 +40,10 @@ _Avoid_: Type, category
 An entry that matches the current query and is shown in the search bar.
 _Avoid_: Hit, match, suggestion
 
+**Pick**:
+One time that the player ran an action on a result, which Seek remembers so it can rank that thing higher later. A blocked action is not a pick.
+_Avoid_: History, usage, selection (selection is the highlighted row)
+
 **Action**:
 What happens when the player picks a result. Each action is either a show action or a use action.
 _Avoid_: Command, handler, activation

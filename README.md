@@ -38,5 +38,4 @@ In the game, `/seek` opens and closes the search bar, and so does a left click o
 - `Seek/`: the addon itself. Only this folder is linked into WoW.
   - `Seek/core/`: plain Lua 5.1 that never touches the WoW API ([ADR 0003](docs/adr/0003-hexagonal-core.md)). luacheck fails on any WoW global here.
   - `Seek/adapters/wow/`: the WoW adapters. WoW globals are allowed here.
-- `prototypes/`: throwaway research prototypes, each a separate WoW addon that is not part of Seek. `prototypes/SecureOpenProbe/` is for issue #39 ([docs/research/secure-window-opening.md](docs/research/secure-window-opening.md)); `make link-probe` links it into the same AddOns folder as `make link`.
 - `tests/`: busted tests (`*_spec.lua`). They run outside the game. `tests/load_core.lua` loads the core files the way WoW does: in TOC order, each with the shared `ns` table. `tests/fake_game.lua` plugs fake adapters into the core's ports (combat state, in-memory storage, a scheduler that the test runs step by step, a clock that the test moves on, settings that the test changes) and simulates a `/reload`.

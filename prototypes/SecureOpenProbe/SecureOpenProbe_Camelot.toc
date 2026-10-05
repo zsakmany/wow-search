@@ -1,5 +1,0 @@
-## Interface: 16001
-## Title: SecureOpenProbe (throwaway)
-## Notes: THROWAWAY research prototype for Seek issue #39. Not part of Seek. Delete after the research.
-
-SecureOpenProbe.lua

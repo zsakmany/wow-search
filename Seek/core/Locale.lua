@@ -30,8 +30,14 @@ ns.L = {
   ACTION_CAST = "Cast",
 
   -- The sign on a use action in the action list while the player is in
-  -- combat, when WoW does not let Seek run it
+  -- combat, when WoW does not let Seek run it, and on the selected result
+  -- after the player pressed the use key there in combat
   BLOCKED_IN_COMBAT = "Blocked in combat",
+
+  -- The use key, as the action list shows it next to the first use action:
+  -- on a Mac, and on Windows
+  USE_KEY_MAC = "Cmd+Enter",
+  USE_KEY_WINDOWS = "Ctrl+Enter",
 
   -- The key binding in the game's Keybindings menu
   BINDING_TOGGLE = "Open or close the search bar",

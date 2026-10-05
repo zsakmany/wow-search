@@ -180,12 +180,14 @@ end
 --      press would run, Seek sets the button's attributes. Attributes of a
 --      secure button can only change outside combat; the core prepares
 --      nothing in combat, and Prepare checks the lockdown too.
---   2. The search bar binds Enter to a click on this button while that use
---      action is selected in the action list (adapters/wow/SearchBar.lua).
---      The player's Enter is the real key press.
+--   2. The search bar binds a key to a click on this button
+--      (adapters/wow/SearchBar.lua): Enter while that use action is
+--      selected in the action list, or the use key while the action list is
+--      closed and that use action is the selected result's first one. The
+--      player's key press is the real key press.
 --   3. The button's own secure OnClick runs the action. Then its PostClick
---      tells the search bar, which sends Enter to the core, and the core asks
---      Run for the use action. Run has nothing left to do then.
+--      tells the search bar, which sends that key to the core, and the core
+--      asks Run for the use action. Run has nothing left to do then.
 --
 -- The button is not a child of the search bar: a protected child would make
 -- the search bar protected too, and it could no longer open and close in

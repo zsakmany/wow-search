@@ -31,6 +31,15 @@ ns.L = {
   -- The key binding in the game's Keybindings menu
   BINDING_TOGGLE = "Open or close the search bar",
 
+  -- Seek's settings page in the game's Options window
+  SETTING_CHARACTER_ONLY = "Use settings for this character only",
+  SETTING_CHARACTER_ONLY_TOOLTIP = "This character gets its own Seek settings, which start from the "
+    .. "account's settings. Turned off, the character uses the account's settings again, and its own "
+    .. "settings are kept for later.",
+  SETTING_VISIBLE_RESULTS = "Visible results",
+  SETTING_VISIBLE_RESULTS_TOOLTIP = "How many results the search bar shows at once, and how many recently "
+    .. "picked things it shows while the query is empty.",
+
   -- In chat, once, after Seek has set its suggested key; %s is the key
   SUGGESTED_KEY_SET = "Seek: press %s to open the search bar. You can change the key in the Keybindings menu.",
 }

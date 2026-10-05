@@ -1,8 +1,8 @@
 ## Interface: 16001
 ## Title: Seek
 ## Notes: A search bar for your bags, spells, and quests.
-## SavedVariables: SeekSuggestedKey
-## SavedVariablesPerCharacter: SeekSavedCopy
+## SavedVariables: SeekSuggestedKey, SeekSettings
+## SavedVariablesPerCharacter: SeekSavedCopy, SeekCharacterSettings
 ## AddonCompartmentFunc: Seek_OnAddonCompartmentClick
 ## IconAtlas: common-search-magnifyingglass
 
@@ -11,6 +11,8 @@ core\Locale.lua
 core\Kinds.lua
 core\Actions.lua
 core\Combat.lua
+core\Settings.lua
+core\SettingsStore.lua
 core\Storage.lua
 core\Scheduler.lua
 core\Clock.lua
@@ -20,11 +22,13 @@ core\Picks.lua
 core\SearchSession.lua
 
 # WoW adapters. PublicApi.lua first: it publishes the global `Seek` that
-# the sources register through. Storage.lua starts the core when the saved
-# variables are loaded, after all of these files have run.
+# the sources register through. Storage.lua starts the core, and
+# Settings.lua loads the settings, when the saved variables are loaded,
+# after all of these files have run.
 adapters\wow\PublicApi.lua
 adapters\wow\CombatState.lua
 adapters\wow\Storage.lua
+adapters\wow\Settings.lua
 adapters\wow\Clock.lua
 adapters\wow\Scheduler.lua
 adapters\wow\Actions.lua

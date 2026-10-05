@@ -1,7 +1,8 @@
 -- The ways to open and close the search bar: the key binding (Bindings.xml;
--- SuggestedKey.lua sets its first key), the /seek slash command, and the
--- Seek entry in the game's addon button at the minimap. All of them toggle
--- it.
+-- SuggestedKey.lua sets its first key), the /seek slash command, and a left
+-- click on the Seek entry in the game's addon button at the minimap. All of
+-- them toggle it. `/seek settings` and a right click on the Seek entry open
+-- Seek's settings page instead (adapters/wow/Settings.lua).
 local _, ns = ...
 
 local L = ns.L
@@ -16,13 +17,21 @@ function Seek_ToggleSearchBar()
 end
 
 SLASH_SEEK1 = "/seek"
-SlashCmdList.SEEK = function()
-  ns.ToggleSearchBar()
+SlashCmdList.SEEK = function(text)
+  if text:lower():match("^%s*(.-)%s*$") == "settings" then
+    ns.OpenSettings()
+  else
+    ns.ToggleSearchBar()
+  end
 end
 
 -- Called by the Seek entry in the addon button at the minimap (the addon
--- compartment), through the TOC's AddonCompartmentFunc. The game finds it
--- by its global name.
-function Seek_OnAddonCompartmentClick()
-  ns.ToggleSearchBar()
+-- compartment), through the TOC's AddonCompartmentFunc, with the addon's
+-- name and the mouse button. The game finds it by its global name.
+function Seek_OnAddonCompartmentClick(_, button)
+  if button == "RightButton" then
+    ns.OpenSettings()
+  else
+    ns.ToggleSearchBar()
+  end
 end

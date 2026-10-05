@@ -7,6 +7,8 @@
 --              time the test asks
 --   clock      a fake clock that stands still until the test moves it on; a
 --              reload keeps it, as the game's time goes on
+--   settings   fake settings that the test changes, as the player does on
+--              Seek's settings page; a reload keeps them
 -- The test acts as the game: it registers fake sources through `game.Seek`
 -- (the public API), starts the core (as WoW does when the saved variables
 -- are loaded), enters and leaves combat, lets days pass, and reloads.
@@ -46,6 +48,16 @@ local function NewCombatState(inCombat)
 end
 
 local DAY = 24 * 60 * 60
+
+-- Settings by name. A setting that the test has not changed gives nil, and
+-- the core uses its default.
+local function NewSettings()
+  local settings = { values = {} }
+  function settings:Get(name)
+    return self.values[name]
+  end
+  return settings
+end
 
 -- The time is in seconds. It starts on a fixed day, so that every run of the
 -- tests sees the same times.
@@ -108,6 +120,7 @@ local M = {}
 --   stepByStep  the scheduler runs one step each time the test asks
 --   storage     the storage to use (a reload passes the old game's)
 --   clock       the clock to use (a reload passes the old game's)
+--   settings    the settings to use (a reload passes the old game's)
 function M.New(options)
   options = options or {}
   local ns = load_core()
@@ -118,11 +131,13 @@ function M.New(options)
     storage = options.storage or NewStorage(),
     scheduler = NewScheduler(options.stepByStep),
     clock = options.clock or NewClock(),
+    settings = options.settings or NewSettings(),
   }, FakeGame)
   ns.SetCombatState(game.combat)
   ns.SetStorage(game.storage)
   ns.SetScheduler(game.scheduler)
   ns.SetClock(game.clock)
+  ns.SetSettings(game.settings)
   return game
 end
 
@@ -154,6 +169,13 @@ function FakeGame:PassDays(days)
   self.clock.now = self.clock.now + days * DAY
 end
 
+-- The player changes a setting on Seek's settings page; nil puts it back to
+-- its default.
+function FakeGame:ChangeSetting(name, value)
+  self.settings.values[name] = value
+  self.ns.SettingChanged(name)
+end
+
 -- Runs one step of the scheduler's work. Returns false when there was none.
 function FakeGame:Step()
   return self.scheduler:Step()
@@ -169,9 +191,9 @@ function FakeGame:RunSteps()
   self.scheduler:RunAll()
 end
 
--- A /reload: a new game with a freshly loaded core, the same storage, and
--- the same clock, not started yet. The player stays in or out of combat, unless
--- `options.inCombat` says otherwise.
+-- A /reload: a new game with a freshly loaded core, the same storage, the
+-- same clock, and the same settings, not started yet. The player stays in
+-- or out of combat, unless `options.inCombat` says otherwise.
 function FakeGame:Reload(options)
   options = options or {}
   local inCombat = options.inCombat
@@ -179,7 +201,7 @@ function FakeGame:Reload(options)
     inCombat = self.combat.inCombat
   end
   return M.New({ inCombat = inCombat, stepByStep = options.stepByStep, storage = self.storage,
-    clock = self.clock })
+    clock = self.clock, settings = self.settings })
 end
 
 return M

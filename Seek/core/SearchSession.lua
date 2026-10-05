@@ -8,11 +8,11 @@ local _, ns = ...
 
 local L = ns.L
 
--- The search bar shows this many results at a time; the rest scroll.
-local VISIBLE_ROWS = 8
-
--- The empty search bar shows this many recently picked things.
-local RECENT_PICKS = 8
+-- The search bar shows as many results at a time as the visible results
+-- setting says; the rest scroll.
+local function VisibleRows()
+  return ns.Setting("visibleResults")
+end
 
 local SearchSession = {}
 SearchSession.__index = SearchSession
@@ -38,9 +38,10 @@ local function Changed(session)
 end
 
 -- A new session starts closed with an empty query. When a source's entries
--- change, or combat starts or ends, while the search bar is open, the
--- session updates and calls `onViewChanged(view)` (optional), so the window
--- can show the new results and the blocked actions.
+-- change, combat starts or ends, or a setting changes, while the search bar
+-- is open, the session updates and calls `onViewChanged(view)` (optional),
+-- so the window can show the new results, the blocked actions, and the new
+-- number of rows.
 function ns.NewSearchSession(onViewChanged)
   local session = setmetatable({
     isOpen = false,
@@ -58,12 +59,17 @@ function ns.NewSearchSession(onViewChanged)
       onViewChanged(view)
     end
   end
-  ns.WatchEntries(function()
+  -- New entries, or a changed setting (the number of visible results),
+  -- take effect at once: search again, and keep the selected result in
+  -- view.
+  local function SearchAgain()
     if session.isOpen then
       session:Search(true)
       Update()
     end
-  end)
+  end
+  ns.WatchEntries(SearchAgain)
+  ns.WatchSettings(SearchAgain)
   ns.WatchCombat(function()
     if session.isOpen then
       Update()
@@ -117,7 +123,7 @@ end
 function SearchSession:Search(keepSelection)
   local results = {}
   if self.query == "" then
-    results = ns.RecentlyPicked(ns.Entries(), RECENT_PICKS)
+    results = ns.RecentlyPicked(ns.Entries(), VisibleRows())
   else
     local matches = {}
     local query = ns.PrepareQuery(self.query)
@@ -156,14 +162,14 @@ end
 -- Moves the selection by `step` results, within the results, and scrolls
 -- so that the selected result is in view.
 function SearchSession:MoveSelection(step)
-  local count = #self.results
+  local count, visible = #self.results, VisibleRows()
   self.selection = math.max(1, math.min(count, self.selection + step))
   if self.selection <= self.scroll then
     self.scroll = self.selection - 1
-  elseif self.selection > self.scroll + VISIBLE_ROWS then
-    self.scroll = self.selection - VISIBLE_ROWS
+  elseif self.selection > self.scroll + visible then
+    self.scroll = self.selection - visible
   end
-  self.scroll = math.max(0, math.min(self.scroll, count - VISIBLE_ROWS))
+  self.scroll = math.max(0, math.min(self.scroll, count - visible))
 end
 
 -- The view state for the search bar. A new table on each call, so the
@@ -173,7 +179,8 @@ end
 --   hint       the hint text while the query is empty and there are no
 --              results (no recently picked things), else nil
 --   noResults  the "no results" text when the query matches nothing, else nil
---   results    the visible results (at most 8), top to bottom; each has
+--   results    the visible results (at most as many as the visible
+--              results setting says), top to bottom; each has
 --              name, icon, kind, kindLabel, and selected (true on one row)
 --   scroll     how many results are above the first visible row
 --   total      how many results there are in all
@@ -184,7 +191,7 @@ end
 --              row shows the "blocked in combat" sign)
 function SearchSession:View()
   local rows = {}
-  for i = self.scroll + 1, math.min(self.scroll + VISIBLE_ROWS, #self.results) do
+  for i = self.scroll + 1, math.min(self.scroll + VisibleRows(), #self.results) do
     local entry = self.results[i]
     rows[#rows + 1] = {
       name = entry.name,

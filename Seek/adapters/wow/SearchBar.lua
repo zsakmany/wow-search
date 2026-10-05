@@ -9,7 +9,6 @@ local _, ns = ...
 
 local L = ns.L
 
-local VISIBLE_ROWS = 8 -- the core sends at most this many result rows
 local ROW_HEIGHT = 24
 local TOP_HEIGHT = 64 -- the title bar and the text box
 local QUESTION_MARK_ICON = 134400 -- for an entry without an icon
@@ -52,9 +51,15 @@ hint:SetPoint("LEFT", box, "LEFT", 0, 0)
 local noResults = frame:CreateFontString(nil, "ARTWORK", "GameFontDisable")
 noResults:SetPoint("TOPLEFT", frame, "TOPLEFT", 18, -TOP_HEIGHT)
 
--- The result rows: icon, name, and kind. The selected row is lit.
+-- The result rows: icon, name, and kind. The selected row is lit. The core
+-- sends as many rows as the visible results setting says; rows are made
+-- when more rows than before first need them.
 local rows = {}
-for i = 1, VISIBLE_ROWS do
+
+local function Row(i)
+  if rows[i] then
+    return rows[i]
+  end
   local row = CreateFrame("Frame", nil, frame)
   row:SetHeight(ROW_HEIGHT)
   row:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -(TOP_HEIGHT - 4) - (i - 1) * ROW_HEIGHT)
@@ -80,6 +85,7 @@ for i = 1, VISIBLE_ROWS do
 
   row:Hide()
   rows[i] = row
+  return row
 end
 
 -- The action list: a small tooltip-style box to the right of the selected
@@ -169,8 +175,8 @@ local function RenderContent(view)
   noResults:SetText(view.noResults or "")
   noResults:SetShown(view.noResults ~= nil)
 
-  for i, row in ipairs(rows) do
-    local result = view.results[i]
+  for i = 1, math.max(#rows, #view.results) do
+    local row, result = Row(i), view.results[i]
     if result then
       row.icon:SetTexture(result.icon or QUESTION_MARK_ICON)
       row.name:SetText(result.name)

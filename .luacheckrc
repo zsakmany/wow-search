@@ -27,6 +27,9 @@ files["Seek/adapters/wow/"] = {
     -- The binding sets that got the suggested key, account-wide (the TOC's
     -- saved variable)
     "SeekSuggestedKey",
+    -- The player's settings: the account's, and the character's own (the
+    -- TOC's saved variables)
+    "SeekSettings", "SeekCharacterSettings",
     -- The function that the addon button at the minimap calls (the TOC's
     -- AddonCompartmentFunc)
     "Seek_OnAddonCompartmentClick",

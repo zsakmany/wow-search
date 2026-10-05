@@ -75,9 +75,18 @@ function ns.PrepareLongText(text)
   return table.concat(words)
 end
 
--- Prepares the query once for all names and long texts.
+-- Prepares the query once for all names and long texts. The query's special
+-- characters (not a letter or digit: "=", "-", "'", a space) are dropped
+-- from its letters, so "innkee=" matches names as "innkee" does. Names are
+-- not changed. A query of only special characters matches nothing.
 function ns.PrepareQuery(query)
-  return { chars = Characters(query), words = Words(query) }
+  local chars = {}
+  for _, char in ipairs(Characters(query)) do
+    if IsWordCharacter(char) then
+      chars[#chars + 1] = char
+    end
+  end
+  return { chars = chars, words = Words(query) }
 end
 
 -- Whether each query word starts a word in the prepared long text. A query

@@ -168,3 +168,50 @@ describe("matched letters", function()
     assert.are.same({ {} }, MatchedLetters(view))
   end)
 end)
+
+-- Special characters in the query (not a letter or digit) never block a
+-- result and never match by themselves.
+describe("special characters in the query", function()
+  it("do not block a name or a long text match", function()
+    local hearthstone = Item("Hearthstone", 6948)
+    hearthstone.longText = "Use: Speak to an Innkeeper to change your home location."
+    Given({ hearthstone, Item("Innkeeper's Daughter", 2), Item("Linen Cloth", 2589) })
+    local expected = { "Innkeeper's Daughter", "Hearthstone" }
+    assert.are.same(expected, Names(session:SetQuery("innkee")))
+    assert.are.same(expected, Names(session:SetQuery("innkee=")))
+  end)
+
+  it("do not change the matched letters of a name", function()
+    -- The name keeps its apostrophe (letter 5); neither query matches it.
+    Given({ Item("Rhok'delar, Longbow of the Ancient Keepers", 18713) })
+    local letters = { 1, 2, 3, 4, 6, 7, 8, 9, 10 }
+    local view = session:SetQuery("rhok'delar")
+    assert.are.same({ "Rhok'delar, Longbow of the Ancient Keepers" }, Names(view))
+    assert.are.same(letters, view.results[1].matchedLetters)
+    view = session:SetQuery("rhokdelar")
+    assert.are.same({ "Rhok'delar, Longbow of the Ancient Keepers" }, Names(view))
+    assert.are.same(letters, view.results[1].matchedLetters)
+  end)
+
+  it("alone give no results, not the recently picked things", function()
+    Given({ Item("Jack-o'-Lantern", 20516), Item("Hearthstone", 6948) })
+    session:SetQuery("hearth")
+    session:PressKey("ENTER") -- a pick; it closes the search bar
+    session:Open()
+    local view = session:SetQuery("=")
+    assert.are.same({}, Names(view))
+    assert.are.equal(0, view.total)
+    view = session:SetQuery("--")
+    assert.are.same({}, Names(view))
+    assert.are.equal(0, view.total)
+  end)
+
+  it("between letters do not change the ranking", function()
+    -- Without skipping, "-" would match only the hyphen of "Sharp-Tooth".
+    Given({ Item("Frost Lotus", 1), Item("Sharp-Tooth Necklace", 2), Item("Rough Stone", 3) })
+    local expected = { "Rough Stone", "Sharp-Tooth Necklace", "Frost Lotus" }
+    assert.are.same(expected, Names(session:SetQuery("st")))
+    assert.are.same(expected, Names(session:SetQuery("s-t")))
+    assert.are.same(expected, Names(session:SetQuery("s t")))
+  end)
+end)

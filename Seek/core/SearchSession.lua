@@ -96,8 +96,8 @@ local function Ranks(a, b)
   if a.rank ~= b.rank then
     return a.rank > b.rank
   end
-  if a.other ~= b.other then
-    return b.other
+  if a.otherOwner ~= b.otherOwner then
+    return b.otherOwner
   end
   local x, y = a.entry, b.entry
   if x.sortName ~= y.sortName then
@@ -114,7 +114,7 @@ end
 
 -- Whether an entry is another character's: it has an owner, and the owner
 -- is not the current character.
-local function OtherCharacters(entry, current)
+local function IsOtherOwner(entry, current)
   return type(entry.owner) == "string" and entry.owner ~= current
 end
 
@@ -145,14 +145,14 @@ function SearchSession:Search(keepSelection)
     local boost = ns.PickBoosts(self.query)
     local current = ns.CurrentCharacter()
     for _, entry in ipairs(ns.Entries()) do
-      local other = OtherCharacters(entry, current)
+      local otherOwner = IsOtherOwner(entry, current)
       local score, letters = ns.Score(query, entry.match)
       if score then
         matches[#matches + 1] = {
-          entry = entry, rank = score + boost(entry), byName = true, letters = letters, other = other,
+          entry = entry, rank = score + boost(entry), byName = true, letters = letters, otherOwner = otherOwner,
         }
       elseif entry.longTextMatch and ns.MatchesLongText(query, entry.longTextMatch) then
-        matches[#matches + 1] = { entry = entry, rank = boost(entry), byName = false, other = other }
+        matches[#matches + 1] = { entry = entry, rank = boost(entry), byName = false, otherOwner = otherOwner }
       end
     end
     table.sort(matches, Ranks)
@@ -169,9 +169,8 @@ function SearchSession:Search(keepSelection)
   local list = self.actionList
   if list then
     local entry = results[self.selection]
-    local actions = keepSelection and SameThing(entry, list.entry) and ns.EntryActions(entry)
-    if actions and #actions > 0 then
-      list.entry, list.actions = entry, actions
+    if keepSelection and SameThing(entry, list.entry) and ns.HasActions(entry) then
+      list.entry, list.actions = entry, ns.EntryActions(entry)
       self:MoveInActionList(0)
     else
       self.actionList = nil
@@ -206,22 +205,27 @@ local function Tooltip(session, rows)
   return { row = session.selection - session.scroll, side = side }
 end
 
+-- An owner's name and realm, from its "Name-Realm". A character's name has
+-- no hyphen; the realm follows the first one. Nil for an owner with no
+-- realm.
+local function SplitOwner(owner)
+  return owner:match("^(.-)%-(.+)$")
+end
+
 -- The owner of another character's entry, as its row shows it: the name,
 -- and the realm only when it is not the current character's ("Bob", or
 -- "Bob-Stormrage"). Nil for the current character's entries, and for
 -- entries with no owner.
 local function OwnerText(entry, current)
-  if not OtherCharacters(entry, current) then
+  if not IsOtherOwner(entry, current) then
     return nil
   end
-  local owner = entry.owner
-  -- A character's name has no hyphen; the realm follows the first one.
-  local name, realm = owner:match("^(.-)%-(.+)$")
-  local _, currentRealm = (current or ""):match("^(.-)%-(.+)$")
+  local name, realm = SplitOwner(entry.owner)
+  local _, currentRealm = SplitOwner(current or "")
   if realm and realm == currentRealm then
     return name
   end
-  return owner
+  return entry.owner
 end
 
 -- The view state for the search bar. A new table on each call, so the
@@ -234,10 +238,9 @@ end
 --   results    the visible results (at most as many as the visible
 --              results setting says), top to bottom; each has
 --              name, icon, kind, gameID (the game's ID for the thing, from
---              the entry), owner (the owner's name for another
---              character's result, see OwnerText, else nil), kindLabel
---              (the kind, with the owner's name when there is one: the
---              row's kind text), faded (true for a result with no actions:
+--              the entry), kindLabel (the kind, with the owner's name for
+--              another character's result, see OwnerText: the row's kind
+--              text), faded (true for a result with no actions:
 --              the search bar draws it faded), selected (true on one row),
 --              and matchedLetters: the positions of the name's letters that
 --              matched the query, in order, counted in whole letters (nil
@@ -267,9 +270,8 @@ function SearchSession:View()
       icon = entry.icon,
       kind = entry.kind,
       gameID = entry.gameID,
-      owner = owner,
       kindLabel = owner and L.KIND_WITH_OWNER:format(kindLabel, owner) or kindLabel,
-      faded = #ns.EntryActions(entry) == 0,
+      faded = not ns.HasActions(entry),
       selected = i == self.selection,
       matchedLetters = self.matchedLetters[entry],
     }
@@ -349,9 +351,8 @@ end
 -- happens.
 function SearchSession:OpenActionList()
   local entry = self.results[self.selection]
-  local actions = entry and ns.EntryActions(entry)
-  if actions and #actions > 0 then
-    self.actionList = { entry = entry, actions = actions, selection = 1 }
+  if entry and ns.HasActions(entry) then
+    self.actionList = { entry = entry, actions = ns.EntryActions(entry), selection = 1 }
   end
 end
 

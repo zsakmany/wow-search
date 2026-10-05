@@ -86,6 +86,12 @@ function ns.EntryActions(entry)
   return actions
 end
 
+-- Whether the entry has any actions. An entry with none is a faded result
+-- (see GLOSSARY.md).
+function ns.HasActions(entry)
+  return #ns.EntryActions(entry) > 0
+end
+
 -- The entry's main action: its first action, when that is a show action.
 -- Nil when the entry has no show action.
 function ns.MainAction(entry)

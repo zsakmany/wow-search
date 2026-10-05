@@ -30,8 +30,8 @@ local SAVED_VERSION = 1
 
 -- Each character's items, by owner: lists of tables with the fields of an
 -- entry that do not depend on the owner (name, kind, icon, gameID,
--- longText).
-local characters = {}
+-- longText). Saved as the field `characters` of the saved bags.
+local bagsByOwner = {}
 
 -- Takes each character's bags from the account-wide saved data (see
 -- Storage.lua), if they have the right shape. ns.Start() calls it, before
@@ -44,7 +44,7 @@ function ns.LoadCharacterBags(data)
   end
   for owner, items in pairs(saved.characters) do
     if type(owner) == "string" and type(items) == "table" then
-      characters[owner] = items
+      bagsByOwner[owner] = items
     end
   end
 end
@@ -61,11 +61,11 @@ function ns.KeepCharacterBags(id, copies)
   for i, copy in ipairs(copies) do
     items[i] = { name = copy.name, kind = copy.kind, icon = copy.icon, gameID = copy.gameID, longText = copy.longText }
   end
-  characters[owner] = items
-  ns.SaveAccount({ bags = { version = SAVED_VERSION, characters = characters } })
+  bagsByOwner[owner] = items
+  ns.SaveAccount({ bags = { version = SAVED_VERSION, characters = bagsByOwner } })
 end
 
--- The other characters' items, the characters in name order, so that the
+-- The other characters' items, the owners in name order, so that the
 -- same items always come in the same order.
 local function GetEntries()
   local entries = {}
@@ -74,14 +74,14 @@ local function GetEntries()
     return entries
   end
   local owners = {}
-  for owner in pairs(characters) do
+  for owner in pairs(bagsByOwner) do
     if owner ~= current then
       owners[#owners + 1] = owner
     end
   end
   table.sort(owners)
   for _, owner in ipairs(owners) do
-    for _, item in ipairs(characters[owner]) do
+    for _, item in ipairs(bagsByOwner[owner]) do
       if type(item) == "table" then
         entries[#entries + 1] = {
           name = item.name,

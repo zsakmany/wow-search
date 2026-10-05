@@ -165,7 +165,7 @@ function ns.RecentlyPicked(entries, count)
   local byKey = {}
   for _, entry in ipairs(entries) do
     local key = Key(entry)
-    if key and not byKey[key] and #ns.EntryActions(entry) > 0 then
+    if key and not byKey[key] and ns.HasActions(entry) then
       byKey[key] = entry
     end
   end

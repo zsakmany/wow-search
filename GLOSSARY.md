@@ -44,6 +44,10 @@ _Avoid_: Hit, match, suggestion
 One time that the player ran an action on a result, which Seek remembers so it can rank that thing higher later. A blocked action is not a pick. Seek keeps the picks per character, next to the saved copy.
 _Avoid_: History, usage, selection (selection is the highlighted row)
 
+**Setting**:
+A choice the player makes about how Seek behaves, such as the number of visible results. Each setting has a default that applies until the player changes it.
+_Avoid_: Option, config, preference
+
 **Action**:
 What happens when the player picks a result. Each action is either a show action or a use action.
 _Avoid_: Command, handler, activation

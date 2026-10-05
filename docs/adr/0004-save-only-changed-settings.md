@@ -1,0 +1,3 @@
+# Save only the settings the player changed
+
+Seek saves a setting only when the player has changed it; every other setting uses its default from the code. Blizzard's normal addon settings registration writes the default value into the saved data as soon as the settings page loads, so a default that changes in a later Seek version would never reach players who never touched that setting. Seek therefore connects its settings page to its own storage (Blizzard's page asks Seek for each value and tells Seek about each change) instead of handing Blizzard the saved table. Do not "simplify" this back to Blizzard's normal registration.

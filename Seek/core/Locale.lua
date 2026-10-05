@@ -17,10 +17,11 @@ ns.L = {
   KIND_SPELL = "Spell",
   KIND_QUEST = "Quest",
 
-  -- The actions' names (the action list will show them)
+  -- The actions' names, as the action list shows them
   ACTION_SHOW_IN_BAG = "Show in bag",
   ACTION_SHOW_IN_SPELLBOOK = "Show in spellbook",
   ACTION_SHOW_IN_QUEST_LOG = "Show in quest log",
+  ACTION_SHOW_ON_MAP = "Show on map",
 
   -- The key binding in the game's Keybindings menu
   BINDING_TOGGLE = "Open or close the search bar",

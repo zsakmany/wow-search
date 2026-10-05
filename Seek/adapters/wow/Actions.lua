@@ -1,7 +1,8 @@
 -- The WoW action adapter: runs the actions that the core asks for through
 -- the Actions port (core/Actions.lua). Show actions only change what the
 -- player sees, so they also work in combat; the exceptions are the
--- spellbook and the quest log, which WoW does not let addons open in combat.
+-- spellbook, the quest log, and the world map, which WoW does not let addons
+-- open in combat.
 --
 -- Show in bag works with the default Blizzard bags. With a bag addon that
 -- replaces them (such as Bagnon), the bag addon's own window opens if it
@@ -160,11 +161,45 @@ local function OpenQuestLog(entry)
   QuestMapFrame_OpenToQuestDetails(entry.gameID)
 end
 
+-- Opens the world map at the zone of the quest's objectives and pings the
+-- quest's pin there, the way Blizzard's own prey hunt widget shows its quest
+-- on the map (Blizzard_UIWidgetTemplatePreyHuntProgress.lua): the quest's
+-- map from GetQuestUiMapID, OpenWorldMap, and the "MapCanvas.PingQuestID"
+-- event that the map's quest pins listen to. Unlike "show in quest log", it
+-- does not open the quest's details. A quest with no place on the map opens
+-- the map where it is.
+--
+-- Not in combat, as with the quest log: OpenWorldMap shows a UI panel,
+-- which Blizzard lets no addon do in combat. It also does nothing when the
+-- quest has left the log since Seek read it.
+--
+-- Taint: Blizzard's map code runs here as Seek's code, so what it writes
+-- while this call runs (the shown map, the pinged pin) counts as Seek's.
+-- The world map's pins are not secure, and Seek touches less than "show in
+-- quest log" does: it neither selects the quest (C_QuestLog.SetSelectedQuest)
+-- nor fills the details panel. Seek writes nothing into Blizzard's tables.
+-- See issue #27 for the same risk with the bags.
+local function ShowOnMap(entry)
+  if InCombatLockdown() or not OpenWorldMap or not GetQuestUiMapID
+      or not C_QuestLog.GetLogIndexForQuestID(entry.gameID) then
+    return
+  end
+  local ignoreWaypoints = true -- the quest's own map, where its pin is
+  local mapID = GetQuestUiMapID(entry.gameID, ignoreWaypoints)
+  if not mapID or mapID == 0 then
+    OpenWorldMap()
+    return
+  end
+  OpenWorldMap(mapID)
+  EventRegistry:TriggerEvent("MapCanvas.PingQuestID", entry.gameID)
+end
+
 -- Each action id from the kind registry (core/Kinds.lua) and how to run it.
 local run = {
   showInBag = ShowInBag,
   showInSpellbook = ShowInSpellbook,
   openQuestLog = OpenQuestLog,
+  showOnMap = ShowOnMap,
 }
 
 ns.SetActionAdapter({

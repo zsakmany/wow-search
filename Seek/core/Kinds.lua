@@ -10,7 +10,8 @@
 --   type   "show" (opens or highlights the thing; combat never blocks it)
 --          or "use" (makes the character do the thing; combat can block it)
 -- The first action is the kind's main action, which Enter runs. It must be
--- a show action, so that Enter never makes the character do something.
+-- a show action, so that Enter never makes the character do something. The
+-- action list shows all of them, in this order.
 local _, ns = ...
 
 local L = ns.L
@@ -32,6 +33,7 @@ ns.kinds = {
     label = L.KIND_QUEST,
     actions = {
       { id = "openQuestLog", label = L.ACTION_SHOW_IN_QUEST_LOG, type = "show" },
+      { id = "showOnMap", label = L.ACTION_SHOW_ON_MAP, type = "show" },
     },
   },
 }
@@ -47,4 +49,12 @@ end
 -- The main action of an entry's kind.
 function ns.MainAction(entry)
   return ns.kinds[entry.kind].actions[1]
+end
+
+-- All actions of an entry, the main action first: what its action list
+-- shows. Today every entry of a kind has all of the kind's actions; an
+-- action that depends on the entry (such as "use" only on a usable item)
+-- is left out here.
+function ns.EntryActions(entry)
+  return ns.kinds[entry.kind].actions
 end

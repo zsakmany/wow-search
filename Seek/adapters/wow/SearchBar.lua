@@ -11,6 +11,9 @@ local VISIBLE_ROWS = 8 -- the core sends at most this many result rows
 local ROW_HEIGHT = 24
 local TOP_HEIGHT = 64 -- the title bar and the text box
 local QUESTION_MARK_ICON = 134400 -- for an entry without an icon
+local LIST_ROW_HEIGHT = 20
+local LIST_PADDING = 8 -- between the action list's border and its rows
+local LIST_MIN_WIDTH = 140
 
 local Render -- defined below; the session calls it after a change notice
 
@@ -76,7 +79,72 @@ for i = 1, VISIBLE_ROWS do
   rows[i] = row
 end
 
--- Shows the query, the hint, the result rows, and the "no results" text.
+-- The action list: a small tooltip-style box to the right of the selected
+-- result row, with one row per action. The selected action is lit, like the
+-- selected result. Rows are made when a longer list first needs them.
+local list = CreateFrame("Frame", nil, frame, "TooltipBackdropTemplate")
+list:SetFrameLevel(frame:GetFrameLevel() + 10)
+list:Hide()
+
+local listRows = {}
+
+local function ListRow(i)
+  local row = listRows[i]
+  if not row then
+    row = CreateFrame("Frame", nil, list)
+    row:SetHeight(LIST_ROW_HEIGHT)
+    row:SetPoint("TOPLEFT", list, "TOPLEFT", LIST_PADDING, -LIST_PADDING - (i - 1) * LIST_ROW_HEIGHT)
+    row:SetPoint("RIGHT", list, "RIGHT", -LIST_PADDING, 0)
+
+    row.selection = row:CreateTexture(nil, "BACKGROUND")
+    row.selection:SetAllPoints()
+    row.selection:SetColorTexture(1, 1, 1, 0.15)
+
+    row.label = row:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    row.label:SetPoint("LEFT", row, "LEFT", 6, 0)
+    row.label:SetJustifyH("LEFT")
+    row.label:SetWordWrap(false)
+
+    listRows[i] = row
+  end
+  return row
+end
+
+-- Shows the action list next to the selected result row, or hides it. The
+-- list is as wide as its longest label.
+local function RenderActionList(view)
+  local anchor
+  for i, result in ipairs(view.results) do
+    if result.selected then
+      anchor = rows[i]
+    end
+  end
+  if not view.actionList or not anchor then
+    list:Hide()
+    return
+  end
+
+  local actions = view.actionList.rows
+  local width = LIST_MIN_WIDTH
+  for i, action in ipairs(actions) do
+    local row = ListRow(i)
+    row.label:SetText(action.label)
+    row.selection:SetShown(action.selected)
+    row:Show()
+    width = math.max(width, math.ceil(row.label:GetStringWidth()) + 12 + 2 * LIST_PADDING)
+  end
+  for i = #actions + 1, #listRows do
+    listRows[i]:Hide()
+  end
+
+  list:SetSize(width, #actions * LIST_ROW_HEIGHT + 2 * LIST_PADDING)
+  list:ClearAllPoints()
+  list:SetPoint("TOPLEFT", anchor, "TOPRIGHT", 16, LIST_PADDING)
+  list:Show()
+end
+
+-- Shows the query, the hint, the result rows, the "no results" text, and
+-- the action list.
 local function RenderContent(view)
   if box:GetText() ~= view.query then
     box:SetText(view.query)
@@ -106,6 +174,8 @@ local function RenderContent(view)
     height = height + ROW_HEIGHT
   end
   frame:SetHeight(height)
+
+  RenderActionList(view)
 end
 
 -- Shows a view state from the core.
@@ -135,27 +205,39 @@ function ns.ToggleSearchBar()
   Render(session:Toggle())
 end
 
+-- Typing changes the query. It also closes the action list (the core
+-- decides), so the player is back at the results of the new query.
 box:SetScript("OnTextChanged", function(self, userInput)
   if userInput then
     Render(session:SetQuery(self:GetText()))
   end
 end)
 
+-- Escape closes the action list when it is open, else the search bar.
 box:SetScript("OnEscapePressed", function()
   Render(session:PressKey("ESCAPE"))
 end)
 
+-- Up and Down move in the action list when it is open, else in the results.
 box:SetScript("OnArrowPressed", function(_, key)
   if key == "UP" or key == "DOWN" then
     Render(session:PressKey(key))
   end
 end)
 
--- Enter runs the selected result's main action and closes the bar; with no
--- results it does nothing. The core decides; the handler also keeps the
--- text box from losing focus on its own.
+-- Enter runs the selected result's main action, or the selected action
+-- when the action list is open, and closes the bar; with no results it does
+-- nothing. The core decides; the handler also keeps the text box from
+-- losing focus on its own.
 box:SetScript("OnEnterPressed", function()
   Render(session:PressKey("ENTER"))
+end)
+
+-- Tab opens the selected result's action list; with no results it does
+-- nothing. This replaces the template's handler, which would move the focus
+-- to another text box.
+box:SetScript("OnTabPressed", function()
+  Render(session:PressKey("TAB"))
 end)
 
 -- While the text box has focus, key bindings do not fire. Catch the Seek

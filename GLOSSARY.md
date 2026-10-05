@@ -57,5 +57,5 @@ The one action a result runs when the player presses Enter. It is always a show 
 _Avoid_: Default action, primary action
 
 **Action list**:
-The list of a result's other actions, which the player opens from the result.
+The list of all of a result's actions, the main action first, which the player opens from the result.
 _Avoid_: Context menu, secondary actions

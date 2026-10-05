@@ -21,6 +21,9 @@ function ns.NewSearchSession(onViewChanged)
     results = {},
     selection = 1, -- the selected result's position in all results
     scroll = 0,
+    -- The open action list, or nil: the result it belongs to (`entry`),
+    -- that result's actions, and the selected action's position.
+    actionList = nil,
   }, SearchSession)
   ns.WatchEntries(function()
     if session.isOpen then
@@ -57,10 +60,21 @@ local function Ranks(a, b)
   return x.order < y.order
 end
 
+-- Whether two entries are the same game thing. A source that is read again
+-- gives new entries, so the tables differ.
+local function SameThing(a, b)
+  return a ~= nil and b ~= nil and a.kind == b.kind and a.gameID == b.gameID
+    and a.owner == b.owner
+end
+
 -- Matches every entry against the query, by name or else by long text, and
 -- ranks the results. The best result is selected, unless `keepSelection`
 -- keeps the selected position (when a source's entries change under the
 -- player's eyes).
+--
+-- The action list belongs to the selected result. A new query closes it.
+-- When a source's entries change, it stays open only if the selected
+-- result is still the same thing, and then it shows that thing's new entry.
 function SearchSession:Search(keepSelection)
   local matches = {}
   if self.query ~= "" then
@@ -84,6 +98,17 @@ function SearchSession:Search(keepSelection)
     self.selection, self.scroll = 1, 0
   end
   self:MoveSelection(0)
+
+  local list = self.actionList
+  if list then
+    local entry = results[self.selection]
+    if keepSelection and SameThing(entry, list.entry) then
+      list.entry, list.actions = entry, ns.EntryActions(entry)
+      self:MoveInActionList(0)
+    else
+      self.actionList = nil
+    end
+  end
 end
 
 -- Moves the selection by `step` results, within the results, and scrolls
@@ -109,6 +134,10 @@ end
 --              name, icon, kind, kindLabel, and selected (true on one row)
 --   scroll     how many results are above the first visible row
 --   total      how many results there are in all
+--   actionList the open action list, else nil. It belongs to the selected
+--              result. `rows` holds the actions, top to bottom; each has
+--              id, label, type ("show" or "use"), and selected (true on
+--              one row)
 function SearchSession:View()
   local rows = {}
   for i = self.scroll + 1, math.min(self.scroll + VISIBLE_ROWS, #self.results) do
@@ -121,6 +150,19 @@ function SearchSession:View()
       selected = i == self.selection,
     }
   end
+  local actionList
+  if self.actionList then
+    local actionRows = {}
+    for i, action in ipairs(self.actionList.actions) do
+      actionRows[i] = {
+        id = action.id,
+        label = action.label,
+        type = action.type,
+        selected = i == self.actionList.selection,
+      }
+    end
+    actionList = { rows = actionRows }
+  end
   return {
     open = self.isOpen,
     query = self.query,
@@ -129,6 +171,7 @@ function SearchSession:View()
     results = rows,
     scroll = self.scroll,
     total = #self.results,
+    actionList = actionList,
   }
 end
 
@@ -142,6 +185,7 @@ end
 
 function SearchSession:Close()
   self.isOpen = false
+  self.actionList = nil
   return self:View()
 end
 
@@ -172,10 +216,56 @@ function SearchSession:RunMainAction()
   return self:View()
 end
 
--- A key press in the search bar. `key` is the WoW key name, such as "ESCAPE"
--- or "DOWN".
-function SearchSession:PressKey(key)
+-- Opens the action list of the selected result, with its main action
+-- selected. With no results, nothing happens.
+function SearchSession:OpenActionList()
+  local entry = self.results[self.selection]
+  if entry then
+    self.actionList = { entry = entry, actions = ns.EntryActions(entry), selection = 1 }
+  end
+end
+
+-- Moves the action list's selection by `step` actions, within the list.
+function SearchSession:MoveInActionList(step)
+  local list = self.actionList
+  list.selection = math.max(1, math.min(#list.actions, list.selection + step))
+end
+
+-- Runs the action list's selected action and closes the search bar, as the
+-- main action does.
+function SearchSession:RunListAction()
+  local list = self.actionList
+  self:Close()
+  ns.RunAction(list.actions[list.selection], list.entry)
+  return self:View()
+end
+
+-- A key press while the action list is open. Escape closes only the list,
+-- so the player is back at the results; Tab does nothing.
+function SearchSession:PressKeyInActionList(key)
   if key == "ESCAPE" then
+    self.actionList = nil
+  elseif key == "ENTER" then
+    return self:RunListAction()
+  elseif key == "UP" then
+    self:MoveInActionList(-1)
+  elseif key == "DOWN" then
+    self:MoveInActionList(1)
+  end
+  return self:View()
+end
+
+-- A key press in the search bar. `key` is the WoW key name, such as "ESCAPE"
+-- or "DOWN". Up and Down move the selection, Enter runs the main action,
+-- Tab opens the action list, and Escape closes the search bar; while the
+-- action list is open, the keys work in the list instead.
+function SearchSession:PressKey(key)
+  if self.actionList then
+    return self:PressKeyInActionList(key)
+  end
+  if key == "TAB" then
+    self:OpenActionList()
+  elseif key == "ESCAPE" then
     return self:Close()
   elseif key == "ENTER" then
     return self:RunMainAction()

@@ -1,12 +1,13 @@
 -- Seek's game option source: one entry per game option and game option page
 -- in the game's Options window, in the player's game language. A game
--- option's long text is its hover explanation in the window (its tooltip in
--- the Settings API). It registers through the public `Seek` table, like any
+-- option's long text is the explanation that the window shows while the
+-- mouse is on it (its `tooltip` in the Settings API). It registers through the public `Seek` table, like any
 -- other addon's source.
 --
 -- It lists Blizzard's pages (the window's Game tab) and their subpages, and
 -- Seek's own page. Left out: the pages of other addons on the AddOns tab,
--- section headers (rows with a name but no setting and no action), game
+-- section headers (rows with a name but no Settings API setting and no
+-- action), game
 -- options that are hidden now (ShouldShow), rows that are a copy of a game
 -- option on another page (search ignores them in Blizzard's search too),
 -- the hidden key binding pages (those with a redirectCategory, such as
@@ -22,9 +23,10 @@ local SOURCE_ID = "Seek.GameOptions"
 -- The Settings API gives no icon for a game option; all share this one.
 local GAME_OPTION_ICON = "Interface\\Icons\\INV_Misc_Gear_01"
 
--- The text of a name or a tooltip, which can be a string or a function that
--- gives one. Nil when there is no text, or when the function fails.
-local function Text(value)
+-- The text of a row's or a page's name, or of a row's explanation, which can
+-- be a string or a function that gives one. Nil when there is no text, or
+-- when the function fails.
+local function ResolveText(value)
   if type(value) == "function" then
     local ok, text = pcall(value)
     value = ok and text or nil
@@ -40,17 +42,17 @@ end
 -- page's name): Blizzard's pages and their subpages, and Seek's own page,
 -- but no hidden key binding page.
 local function EachPage(visit)
-  local function Visit(page)
-    local name = not page.redirectCategory and Text(page:GetQualifiedName())
+  local function VisitPage(page)
+    local name = not page.redirectCategory and ResolveText(page:GetQualifiedName())
     if name then
       visit(page, name)
     end
   end
-  for _, category in ipairs(SettingsPanel:GetAllCategories()) do
-    if category:GetCategorySet() == Settings.CategorySet.Game or category == ns.SettingsPage() then
-      Visit(category)
-      for _, subpage in ipairs(category:GetSubcategories()) do
-        Visit(subpage)
+  for _, page in ipairs(SettingsPanel:GetAllCategories()) do
+    if page:GetCategorySet() == Settings.CategorySet.Game or page == ns.SettingsPage() then
+      VisitPage(page)
+      for _, subpage in ipairs(page:GetSubcategories()) do
+        VisitPage(subpage)
       end
     end
   end
@@ -62,11 +64,12 @@ local function IsShown(initializer)
   return ok and shown
 end
 
--- Calls `visit(name, tooltip)` for each game option on the page: each row
--- of a vertical layout that has a setting or an action (a button), is
--- shown now, and is not a copy of a row on another page. The name is the
--- one that Settings.OpenToCategory scrolls to: the row's `data.name` (for a
--- setting, the setting's name), else its GetName(). A page with a canvas
+-- Calls `visit(name, explanation)` for each game option on the page: each
+-- row of a vertical layout that has a Settings API setting or an action (a
+-- button), is shown now, and is not a copy of a row on another page. The
+-- name is the one that Settings.OpenToCategory scrolls to: the row's
+-- `data.name` (for a Settings API setting, that setting's name), else its
+-- GetName(). The explanation is the row's `data.tooltip`, or nil. A page with a canvas
 -- layout, and the key binding page, have none.
 local function EachGameOption(page, visit)
   local layout = SettingsPanel:GetLayout(page)
@@ -78,15 +81,15 @@ local function EachGameOption(page, visit)
     if type(data) == "table" and (data.setting or data.buttonClick)
         and not (initializer.IsSearchIgnoredInLayout and initializer:IsSearchIgnoredInLayout(layout))
         and IsShown(initializer) then
-      local name = Text(data.name) or (initializer.GetName and Text(initializer:GetName()))
+      local name = ResolveText(data.name) or (initializer.GetName and ResolveText(initializer:GetName()))
       if name then
-        visit(name, Text(initializer.GetTooltip and initializer:GetTooltip() or data.tooltip))
+        visit(name, ResolveText(data.tooltip))
       end
     end
   end
 end
 
--- The entries. A page's ID (category:GetID()) is only a counter that can
+-- The entries. A page's ID (page:GetID()) is only a counter that can
 -- change between sessions, so the game ID is made of names instead: the
 -- page's qualified name for a page, and the page's name and the game
 -- option's name for a game option. The action adapter looks the page up
@@ -101,14 +104,14 @@ local function GetEntries()
   end
   EachPage(function(page, pageName)
     Add({ name = pageName, icon = GAME_OPTION_ICON, kind = "gameOption", gameID = pageName })
-    EachGameOption(page, function(name, tooltip)
+    EachGameOption(page, function(name, explanation)
       Add({
         name = name,
         icon = GAME_OPTION_ICON,
         kind = "gameOption",
         gameID = pageName .. "\n" .. name,
         page = pageName,
-        longText = tooltip and ns.LongText({ tooltip }),
+        longText = explanation and ns.LongText({ explanation }),
       })
     end)
   end)

@@ -117,6 +117,8 @@ describe("a game option", function()
 end)
 
 describe("a game option after a reload", function()
+  -- In the game, the source registers only when the game has built its
+  -- pages, after the start, and maybe in combat.
   it("is found in combat with its page, from the saved copy, before the source is read", function()
     local game = FakeGame.Started()
     game.Seek.RegisterSource({
@@ -127,6 +129,7 @@ describe("a game option after a reload", function()
     })
 
     local after = game:Reload({ inCombat = true })
+    after:Start()
     local reads = 0
     after.Seek.RegisterSource({
       id = "Test.GameOptions",
@@ -135,7 +138,6 @@ describe("a game option after a reload", function()
         return {}
       end,
     })
-    after:Start()
     local session = after.ns.NewSearchSession()
     session:Open()
     assert.are.same({ "Auto Loot · Controls" }, Names(session:SetQuery("auto loot")))

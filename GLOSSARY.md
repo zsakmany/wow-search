@@ -25,8 +25,12 @@ One searchable thing that a source supplies, such as one item or one quest.
 _Avoid_: Record, document, item (item means a WoW item)
 
 **Tooltip**:
-The game's own info box for a thing, which the search bar shows beside the selected result. Not the same as long text, even when an item's long text comes from its tooltip.
+The game's own info box for a thing, which the search bar shows beside the selected result. Not the same as long text, even when an item's long text comes from its tooltip, and not the same as hover text.
 _Avoid_: Preview, popup, card
+
+**Hover text**:
+Seek's own short help text that shows while the mouse is on one of Seek's controls, such as the minimap icon. It tells what the clicks do; it is never a tooltip.
+_Avoid_: Tooltip (for this), hint, help popup
 
 **Long text**:
 An entry's optional longer text, besides its name: an item's tooltip text, a spell's description, or a quest's description and objectives. The query matches it only at word starts, never fuzzy, and a name match always ranks above a long text match.
@@ -75,6 +79,14 @@ _Avoid_: Default action, primary action
 **Use key**:
 The key that runs the selected result's first use action without opening the action list: Cmd+Enter on a Mac, Ctrl+Enter on Windows. Combat blocks it, like every use action.
 _Avoid_: Shortcut, hotkey, quick use
+
+**Minimap icon**:
+Seek's own icon at the edge of the minimap, which opens the search bar. Not the addon button.
+_Avoid_: Minimap button, launcher, LDB icon
+
+**Addon button**:
+The game's shared button at the minimap that lists the addons; Seek has an entry in it. Not the minimap icon.
+_Avoid_: Addon compartment (outside code), minimap button
 
 **Action list**:
 The list of all of a result's actions, the main action first, which the player opens from the result.

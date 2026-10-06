@@ -131,3 +131,25 @@ describe("the visible results setting", function()
     end)
   end)
 end)
+
+describe("the minimap icon setting", function()
+  local game
+
+  before_each(function()
+    game = FakeGame.Started()
+  end)
+
+  it("is on by default", function()
+    assert.is_true(game.ns.Setting("minimapIcon"))
+  end)
+
+  it("tells its watchers at once when the player turns it off and on", function()
+    local seen = {}
+    game.ns.WatchSettings(function(name)
+      seen[#seen + 1] = name .. "=" .. tostring(game.ns.Setting(name))
+    end)
+    game:ChangeSetting("minimapIcon", false)
+    game:ChangeSetting("minimapIcon", true)
+    assert.are.same({ "minimapIcon=false", "minimapIcon=true" }, seen)
+  end)
+end)

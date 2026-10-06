@@ -27,6 +27,8 @@ ns.settings = {
   -- Whether search shows the items in the bags of the player's other
   -- characters (CharacterBags.lua).
   otherCharactersBags = { default = true },
+  -- Whether Seek's minimap icon shows at the edge of the minimap.
+  minimapIcon = { default = true },
 }
 
 local adapter

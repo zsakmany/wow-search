@@ -60,6 +60,14 @@ _Avoid_: History, usage, selection (selection is the highlighted row)
 A choice the player makes about how Seek behaves, such as the number of visible results. Each setting has a default that applies until the player changes it.
 _Avoid_: Option, config, preference
 
+**Game option**:
+One option in the game's Options window, such as Auto Loot. Seek's own settings are on a page in that window too, so each of them also shows there as a game option; "setting" is still the word for the choice itself.
+_Avoid_: Setting (for this), option (alone), CVar, preference
+
+**Game option page**:
+One page of the game's Options window, such as Audio, which holds game options. Its entries have the same kind as game options.
+_Avoid_: Category, panel, tab, options page
+
 **Action**:
 What happens when the player picks a result. Each action is either a show action or a use action.
 _Avoid_: Command, handler, activation

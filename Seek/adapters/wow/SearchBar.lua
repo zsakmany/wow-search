@@ -11,7 +11,9 @@ local L = ns.L
 
 local ROW_HEIGHT = 24
 local ROW_INSET = 10 -- between the window's left and right edges and the result rows
-local ROW_NAME_LEFT = 30 -- between a result row's left edge and the name: the icon's inset, the icon, and a gap
+local ROW_ICON_LEFT = 4 -- between a result row's left edge and the icon
+local ROW_ICON_SIZE = 20
+local ROW_NAME_LEFT = ROW_ICON_LEFT + ROW_ICON_SIZE + 6 -- between a result row's left edge and the name
 local ROW_KIND_RIGHT = 6 -- between the kind text and a result row's right edge
 local ROW_KIND_GAP = 8 -- between the name, or the item count after it, and the kind text
 local ROW_COUNT_GAP = 4 -- between the name and the item count
@@ -121,8 +123,8 @@ local function Row(i)
   row.selection:SetColorTexture(1, 1, 1, 0.15)
 
   row.icon = row:CreateTexture(nil, "ARTWORK")
-  row.icon:SetSize(20, 20)
-  row.icon:SetPoint("LEFT", row, "LEFT", 4, 0)
+  row.icon:SetSize(ROW_ICON_SIZE, ROW_ICON_SIZE)
+  row.icon:SetPoint("LEFT", row, "LEFT", ROW_ICON_LEFT, 0)
 
   row.kind = row:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
   row.kind:SetPoint("RIGHT", row, "RIGHT", -ROW_KIND_RIGHT, 0)
@@ -153,8 +155,11 @@ local function FitName(row)
   if row.count:IsShown() then
     room = room - ROW_COUNT_GAP - row.count:GetStringWidth()
   end
-  -- A width of 0 would let the name grow to its text again.
-  row.name:SetWidth(math.max(1, math.min(row.name:GetUnboundedStringWidth(), room)))
+  -- A pixel more than the text, so that a name that just fits is not cut
+  -- short when the width is rounded to whole pixels. A width of 0 would let
+  -- the name grow to its text again.
+  local width = math.ceil(row.name:GetUnboundedStringWidth()) + 1
+  row.name:SetWidth(math.max(1, math.min(width, room)))
 end
 
 -- The action list: a small tooltip-style box to the right of the selected

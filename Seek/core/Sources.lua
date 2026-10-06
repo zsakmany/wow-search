@@ -81,7 +81,7 @@ local saved = { version = SAVED_VERSION, sources = {} }
 -- Whether `count` is an item count that Seek keeps: a whole number of at
 -- least 1.
 local function IsCount(count)
-  return type(count) == "number" and count >= 1 and count == math.floor(count)
+  return type(count) == "number" and count >= 1 and count < math.huge and count == math.floor(count)
 end
 
 -- Copies an entry from a source, or returns nil to reject it. Seek keeps

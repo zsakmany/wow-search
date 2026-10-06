@@ -4,6 +4,7 @@
 
 local FakeGame = require("tests.fake_game")
 
+-- An item in the current character's bags, with this item count (or none).
 local function Item(name, itemID, count)
   return {
     name = name, icon = 134400, kind = "item", gameID = itemID, owner = "Tester", inBags = true, count = count,
@@ -36,6 +37,7 @@ describe("the item count", function()
     session:Open()
   end
 
+  -- The rows that the search bar shows for this query (see Rows).
   local function Search(query)
     return Rows(session:SetQuery(query))
   end
@@ -64,11 +66,13 @@ describe("the item count", function()
       Item("Linen Cloth", 2589, -3),
       Item("Rough Stone", 2835, 2.5),
       Item("Silk Cloth", 4306, "57"),
+      Item("Iron Ore", 2772, math.huge),
     })
     assert.are.same({ "Copper Ore" }, Search("copper"))
     assert.are.same({ "Linen Cloth" }, Search("linen"))
     assert.are.same({ "Rough Stone" }, Search("rough"))
     assert.are.same({ "Silk Cloth" }, Search("silk"))
+    assert.are.same({ "Iron Ore" }, Search("iron"))
   end)
 end)
 
@@ -115,6 +119,8 @@ describe("the item count of another character's item", function()
     return game
   end
 
+  -- The rows that the search bar shows for this query in `game` (see
+  -- Rows), and whether the first result is faded.
   local function Search(game, query)
     local session = game.ns.NewSearchSession()
     session:Open()

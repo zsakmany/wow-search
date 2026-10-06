@@ -60,7 +60,8 @@ ns.kinds = {
     actions = {
       { id = "showOnMap", label = L.ACTION_SHOW_ON_MAP, type = "show" },
       -- A quest gets one action of each pair, by its facts `focused` and
-      -- `tracked`. Focus is the first use action, so the use key runs it.
+      -- `tracked`. Focus (or Remove Focus) is the first use action, so the
+      -- use key runs it.
       { id = "focusQuest", label = L.ACTION_FOCUS, type = "use", lacks = { "focused" } },
       { id = "removeFocus", label = L.ACTION_REMOVE_FOCUS, type = "use", needs = { "focused" } },
       { id = "trackQuest", label = L.ACTION_TRACK, type = "use", lacks = { "tracked" } },

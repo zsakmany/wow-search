@@ -213,10 +213,12 @@ local function ToggleTracked(entry, track)
   QuestMapQuestOptions_TrackQuest(questID)
 end
 
+-- The "Track" action: tracks the quest (see ToggleTracked).
 local function TrackQuest(entry)
   ToggleTracked(entry, true)
 end
 
+-- The "Untrack" action: untracks the quest (see ToggleTracked).
 local function UntrackQuest(entry)
   ToggleTracked(entry, false)
 end
@@ -275,9 +277,18 @@ end
 -- combat. It is hidden; a key binding clicks it all the same.
 local USE_BUTTON_NAME = "SeekUseButton"
 
--- The use actions that run through the secure button. The others run from
--- Run (see the list of actions at the end).
-local ON_USE_BUTTON = { useItem = true, castSpell = true }
+-- The use actions that run through the secure button, and the button's
+-- attributes for each: its type, and its item or spell, from the entry's
+-- game ID. The other use actions run from Run (see the list of actions at
+-- the end).
+local ON_USE_BUTTON = {
+  useItem = function(gameID)
+    return "item", "item:" .. gameID, nil
+  end,
+  castSpell = function(gameID)
+    return "spell", nil, gameID
+  end,
+}
 
 local useButton = CreateFrame("Button", USE_BUTTON_NAME, UIParent, "SecureActionButtonTemplate")
 
@@ -294,10 +305,9 @@ local function Apply()
     return
   end
   local actionType, item, spell
-  if requested and requested.id == "useItem" then
-    actionType, item = "item", "item:" .. requested.entry.gameID
-  elseif requested and requested.id == "castSpell" then
-    actionType, spell = "spell", requested.entry.gameID
+  local attributes = requested and ON_USE_BUTTON[requested.id]
+  if attributes then
+    actionType, item, spell = attributes(requested.entry.gameID)
   end
   useButton:SetAttribute("type", actionType)
   useButton:SetAttribute("item", item)
@@ -356,7 +366,7 @@ end
 -- asked for none (always in combat), and for a use action that Run runs
 -- itself: the search bar sends the key to the core for that one.
 function ns.UseButtonRequested()
-  return requested ~= nil and ON_USE_BUTTON[requested.id] == true
+  return requested ~= nil and ON_USE_BUTTON[requested.id] ~= nil
 end
 
 -- The key press on the secure button has already run the use action.

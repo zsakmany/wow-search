@@ -113,6 +113,12 @@ local rows = {}
 
 local RenderCooldownAndFitName -- defined below; a row's sweep calls it when it ends
 
+-- The kind text with a cooldown's time (L.KIND_WITH_COOLDOWN), with the time
+-- in the game's red, its sign for "not ready", so that it stands out from
+-- the dim kind. The color goes into the format, not around the time: the
+-- time can be secret, and Seek passes it to the game untouched.
+local KIND_WITH_RED_COOLDOWN = L.KIND_WITH_COOLDOWN:format("%s", RED_FONT_COLOR:WrapTextInColorCode("%s"))
+
 local function Row(i)
   if rows[i] then
     return rows[i]
@@ -366,15 +372,16 @@ end
 
 -- Shows the cooldown of a row's thing while it runs, read live
 -- (adapters/wow/Cooldowns.lua): the game's sweep on the icon, and the time
--- left in the kind text ("Item · 12 m"); or clears both, when the row may
--- show none (`row.cooldownOf` is nil), when its thing is ready, and when
--- only the global cooldown runs. The blocked sign keeps its place: then
--- only the sweep shows. Rows are reused, so this also clears what a row
--- showed for its last result. Works in combat: the cooldown and its time
--- go to the game as they are, secret or not, and nothing here compares or
--- measures them. A sweep is cleared only when it shows. The sweep's
--- OnCooldownDone ignores what this does to the sweep (`renderingCooldown`),
--- in case setting or clearing it ends the old sweep at once.
+-- left in red in the kind text ("Item · 12 m"); or clears both, when the
+-- row may show none (`row.cooldownOf` is nil), when its thing is ready,
+-- and when only the global cooldown runs. The blocked sign keeps its
+-- place: then only the sweep shows. Rows are reused, so this also clears
+-- what a row showed for its last result. Works in combat: the cooldown and
+-- its time go to the game as they are, secret or not, and nothing here
+-- compares or measures them. A sweep is cleared only when it shows. The
+-- sweep's OnCooldownDone ignores what this does to the sweep
+-- (`renderingCooldown`), in case setting or clearing it ends the old sweep
+-- at once.
 local function RenderCooldown(row)
   local cooldown = row.cooldownOf and ns.ReadCooldown(row.cooldownOf)
   local wasShown = row.sweepShown
@@ -387,7 +394,7 @@ local function RenderCooldown(row)
   end
   row.renderingCooldown = false
   if cooldown and not row.blocked then
-    row.kind:SetFormattedText(L.KIND_WITH_COOLDOWN, row.kindText, ns.CooldownTimeText(cooldown))
+    row.kind:SetFormattedText(KIND_WITH_RED_COOLDOWN, row.kindText, ns.CooldownTimeText(cooldown))
     row.kindStandIn = L.KIND_WITH_COOLDOWN:format(row.kindText, ns.WIDE_COOLDOWN_TIME_TEXT)
   else
     row.kind:SetText(row.kindText)

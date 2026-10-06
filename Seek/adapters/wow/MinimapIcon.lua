@@ -39,6 +39,9 @@ end
 
 local icon, iconCoords = Picture()
 
+-- When the mouse button last went down on the icon (see OnClick).
+local mouseDownAt = 0
+
 -- The icon's data for LibDBIcon: a LibDataBroker data object. Its type
 -- "launcher" is LibDataBroker's word for a data object that only takes
 -- clicks.
@@ -46,7 +49,13 @@ local iconData = LibStub("LibDataBroker-1.1"):NewDataObject(addonName, {
   type = "launcher",
   icon = icon,
   iconCoords = iconCoords,
+  -- A left click while the bar is open must close it. But the mouse button
+  -- going down already took the text box's focus, which closed the bar;
+  -- toggling now would open it again, so the click does nothing then.
   OnClick = function(_, button)
+    if button == "LeftButton" and ns.SearchBarClosedByLostFocusSince(mouseDownAt) then
+      return
+    end
     ns.ClickAddonButtonOrMinimapIcon(button)
   end,
   -- LibDBIcon shows the hover text in its own GameTooltip frame.
@@ -96,6 +105,11 @@ events:SetScript("OnEvent", function(self, _, name)
       SeekMinimapIcon = {}
     end
     LibDBIcon:Register(addonName, iconData, SeekMinimapIcon)
+    -- The lost focus and the mouse button going down happen in the same
+    -- frame, so they get the same GetTime(), in either order.
+    LibDBIcon:GetMinimapButton(addonName):HookScript("OnMouseDown", function()
+      mouseDownAt = GetTime()
+    end)
     registered = true
     Update()
   end

@@ -614,11 +614,21 @@ end)
 -- keys: the player clicked outside the bar (on the game world, for
 -- example). Close the bar, like a command palette in other apps; the Seek
 -- key opens it again. Closing also clears the use key's binding.
+local closedByLostFocusAt
 box:HookScript("OnEditFocusLost", function()
   if frame:IsShown() and not listKeys then
+    closedByLostFocusAt = GetTime()
     Render(session:Close())
   end
 end)
+
+-- Whether the lost focus closed the bar at `time` or later. A mouse button
+-- that goes down on a control outside the bar (the minimap icon, for
+-- example) takes the focus, which closes the bar before the click ends; the
+-- control asks this so that its click does not open the bar again.
+function ns.SearchBarClosedByLostFocusSince(time)
+  return closedByLostFocusAt ~= nil and closedByLostFocusAt >= time
+end
 
 -- A key press while the list keys have the keyboard (see above).
 keys:SetScript("OnKeyDown", function(self, key)

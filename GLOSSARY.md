@@ -36,6 +36,10 @@ _Avoid_: Preview, popup, card
 Seek's own short help text that shows while the mouse is on one of Seek's controls, such as the minimap icon. It tells what the clicks do; it is never a tooltip.
 _Avoid_: Tooltip (for this), hint, help popup
 
+**Item count**:
+How many of an item its owner has in the backpack and the equipped bags, all stacks together. An item result shows it after the name, only when it is more than 1. Another character's item count is the one at that character's last logout.
+_Avoid_: Stack, stack size, quantity, amount
+
 **Long text**:
 An entry's optional longer text, besides its name: an item's tooltip text, a spell's description, or a quest's description and objectives. The query matches it only at word starts, never fuzzy, and a name match always ranks above a long text match.
 _Avoid_: Description, body, tooltip (for the general idea)

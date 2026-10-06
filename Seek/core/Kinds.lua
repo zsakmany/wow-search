@@ -11,18 +11,25 @@
 -- kind was picked yet. Each action has:
 --   id     a stable name; the action adapter runs the action by this id
 --   label  the action's name, from the locale table
---   type   "show" (opens or highlights the thing; combat never blocks it)
---          or "use" (makes the character do the thing; in combat it is
---          blocked, see SearchSession.lua)
+--   type   "show" (opens or highlights the thing and changes nothing in
+--          the game; combat never blocks it) or "use" (changes something
+--          in the game: the character does the thing, or the thing
+--          changes, such as a quest's focus; in combat it is blocked, see
+--          SearchSession.lua)
 --   needs  (optional) the names of the entry facts that must be true for
 --          the entry to have this action, such as "usable": only an item
 --          that can be used gets "use"
+--   lacks  (optional) the names of the entry facts that must not be true
+--          for the entry to have this action. Two actions with the same
+--          fact, one in `needs` and one in `lacks`, give an entry one of
+--          the two, so the label follows the fact: "Focus" on a quest
+--          without the focus, "Remove Focus" on the focused quest
 -- An entry gets only those of its kind's actions that it can do. Its first
 -- action is its main action, which Enter runs, when it is a show action;
--- Enter never makes the character do something; the use key runs the
--- entry's first use action instead. An entry with no show action has no
--- main action: Enter does nothing for it. An entry with no actions at all
--- is a faded result (see GLOSSARY.md). The action list shows all of the
+-- Enter never changes anything in the game; the use key runs the entry's
+-- first use action instead. An entry with no show action has no main
+-- action: Enter does nothing for it. An entry with no actions at all is a
+-- faded result (see GLOSSARY.md). The action list shows all of the
 -- entry's actions, in this order: the show actions first, then the use
 -- actions; for a recently picked thing, SearchSession.lua adds the forget
 -- action last, which belongs to no kind.
@@ -51,8 +58,13 @@ ns.kinds = {
   quest = {
     label = L.KIND_QUEST,
     actions = {
-      { id = "openQuestLog", label = L.ACTION_SHOW_IN_QUEST_LOG, type = "show" },
       { id = "showOnMap", label = L.ACTION_SHOW_ON_MAP, type = "show" },
+      -- A quest gets one action of each pair, by its facts `focused` and
+      -- `tracked`. Focus is the first use action, so the use key runs it.
+      { id = "focusQuest", label = L.ACTION_FOCUS, type = "use", lacks = { "focused" } },
+      { id = "removeFocus", label = L.ACTION_REMOVE_FOCUS, type = "use", needs = { "focused" } },
+      { id = "trackQuest", label = L.ACTION_TRACK, type = "use", lacks = { "tracked" } },
+      { id = "untrackQuest", label = L.ACTION_UNTRACK, type = "use", needs = { "tracked" } },
     },
   },
   -- A game option or a game option page (see GLOSSARY.md): both have this
@@ -80,10 +92,16 @@ for name, kind in pairs(ns.kinds) do
   end
 end
 
--- Whether the entry has every fact that `action` needs.
+-- Whether the entry has every fact that `action` needs, and none that it
+-- lacks.
 local function CanDo(entry, action)
   for _, fact in ipairs(action.needs or {}) do
     if entry[fact] ~= true then
+      return false
+    end
+  end
+  for _, fact in ipairs(action.lacks or {}) do
+    if entry[fact] == true then
       return false
     end
   end

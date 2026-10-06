@@ -175,9 +175,8 @@ describe("use actions", function()
     GivenSource("Test.Quests", { Quest("The Defias Brotherhood", 65) })
     game:EnterCombat()
     assert.are.same({ "Show in bag", "Use (blocked)" }, (ListRows(OpenList("hearth"))))
-    assert.are.same({ "Show in quest log", "Show on map" }, (ListRows(OpenList("defias"))))
+    assert.are.same({ "Show on map", "Focus (blocked)", "Track (blocked)" }, (ListRows(OpenList("defias"))))
 
-    session:PressKey("DOWN")
     local view = session:PressKey("ENTER")
     assert.are.same({ { action = "showOnMap", kind = "quest", gameID = 65 } }, actions.requests)
     assert.is_false(view.open)
@@ -257,10 +256,12 @@ describe("use actions", function()
 
     it("does nothing on a result with no use action, and never runs the main action instead", function()
       GivenSource("Test.Cloth", { Item("Linen Cloth", 2589) })
-      GivenSource("Test.Quests", { Quest("The Defias Brotherhood", 65) })
-      for _, query in ipairs({ "linen", "defias" }) do
+      GivenSource("Test.Options", {
+        { name = "Auto Loot", kind = "gameOption", gameID = "Controls\nAuto Loot", page = "Controls" },
+      })
+      for _, query in ipairs({ "linen", "> auto loot" }) do
         session:Open()
-        session:SetQuery(query)
+        assert.are.equal(1, session:SetQuery(query).total)
         assert.is_true(session:PressKey("USE").open)
       end
       assert.are.same({}, actions.requests)

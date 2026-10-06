@@ -1,10 +1,12 @@
 -- The WoW action adapter: runs the actions that the core asks for through
 -- the Actions port (core/Actions.lua). Show actions only change what the
--- player sees, so they also work in combat; the exceptions are the quest
--- log and the world map, which WoW does not let addons open in combat.
+-- player sees, so they also work in combat; the exceptions are the world
+-- map and the Options window, which WoW does not let addons open in combat.
 -- There is no "show in spellbook": opening the spellbook from addon code
--- taints it (issue #29). Use actions run through a secure button (see below); the
--- core blocks them in combat.
+-- taints it (issue #29). The core blocks every use action in combat. Use
+-- on an item and cast on a spell run through a secure button (see below);
+-- a quest's focus and tracking call no protected function, so Run runs
+-- them itself, like a show action.
 --
 -- Show in bag works with the default Blizzard bags. With a bag addon that
 -- replaces them (such as Bagnon), the bag addon's own window opens if it
@@ -113,9 +115,17 @@ local function ShowInBag(entry)
   end
 end
 
--- Opens the quest log (the side panel of the world map on Forever) at the
--- quest's details, through the function that Blizzard's own objective
--- tracker calls when the player clicks a quest there.
+-- Opens the world map with the quest's details in its side panel (the
+-- quest log, on Forever), through the function that Blizzard's own
+-- objective tracker calls when the player clicks a quest there. Blizzard's
+-- details panel shows the map of the quest's objectives and pings the
+-- quest's pin there (QuestMapFrame_ShowQuestDetails in Blizzard_UIPanels_
+-- Game/Mainline/QuestMapFrame.lua). For a quest with a waypoint (a route to
+-- objectives in another zone), it shows the waypoint's map instead, as the
+-- game does, and the panel's button switches to the objectives' map. Seek
+-- cannot pick the map itself: the details panel closes when the map
+-- changes to any other map than the one it opened. A quest with no place
+-- on the map still opens its details.
 --
 -- Not in combat: Blizzard lets no addon show a UI panel such as the world
 -- map in combat, and shows "Interface action failed because of an AddOn"
@@ -123,11 +133,12 @@ end
 -- the quest has left the log since Seek read it.
 --
 -- Taint: Blizzard's code runs here as Seek's code, so the fields it writes
--- (such as the quest that the details panel shows) count as Seek's until
--- the player closes the world map, which clears them. The quest log has no
--- secure buttons of its own, and the map refreshes its secure parts in a
--- way that ignores Seek. See issue #27 for the same risk with the bags.
-local function OpenQuestLog(entry)
+-- (such as the quest that the details panel shows, and the map's scroll
+-- position) count as Seek's. The quest log has no secure buttons of its
+-- own, but the map's quest pins can be blocked when the player opens the
+-- map again in combat (issue #38). See issue #27 for the same risk with the
+-- bags.
+local function ShowOnMap(entry)
   if InCombatLockdown() or not QuestMapFrame_OpenToQuestDetails
       or not C_QuestLog.GetLogIndexForQuestID(entry.gameID) then
     return
@@ -138,37 +149,76 @@ local function OpenQuestLog(entry)
   QuestMapFrame_OpenToQuestDetails(entry.gameID)
 end
 
--- Opens the world map at the zone of the quest's objectives and pings the
--- quest's pin there, the way Blizzard's own prey hunt widget shows its quest
--- on the map (Blizzard_UIWidgetTemplatePreyHuntProgress.lua): the quest's
--- map from GetQuestUiMapID, OpenWorldMap, and the "MapCanvas.PingQuestID"
--- event that the map's quest pins listen to. Unlike "show in quest log", it
--- does not open the quest's details. A quest with no place on the map opens
--- the map where it is.
+-- Whether the quest is a tracked quest: one that the objective tracker
+-- shows (QuestUtils_IsQuestWatched in Blizzard_FrameXMLUtil/Mainline/
+-- QuestUtils.lua).
+local function IsTracked(questID)
+  return C_QuestLog.GetQuestWatchType(questID) ~= nil
+end
+
+-- Gives the quest the focus (the arrow on the minimap), the way a click on
+-- the quest's icon does in the game (POIButtonMixin:OnClick in
+-- Blizzard_POIButton/POIButton.lua): a quest that is not tracked is tracked
+-- first, then it gets the focus. Like that click, it does not check the
+-- limit of tracked quests itself. It does nothing when the quest has left
+-- the log since Seek read it.
 --
--- Not in combat, as with the quest log: OpenWorldMap shows a UI panel,
--- which Blizzard lets no addon do in combat. It also does nothing when the
--- quest has left the log since Seek read it.
---
--- Taint: Blizzard's map code runs here as Seek's code, so what it writes
--- while this call runs (the shown map, the pinged pin) counts as Seek's.
--- The world map's pins are not secure, and Seek touches less than "show in
--- quest log" does: it neither selects the quest (C_QuestLog.SetSelectedQuest)
--- nor fills the details panel. Seek writes nothing into Blizzard's tables.
--- See issue #27 for the same risk with the bags.
-local function ShowOnMap(entry)
-  if InCombatLockdown() or not OpenWorldMap or not GetQuestUiMapID
-      or not C_QuestLog.GetLogIndexForQuestID(entry.gameID) then
+-- Combat: neither function is protected; the core blocks this in combat
+-- like every use action. Taint: Seek calls only the game's C_ functions and
+-- writes nothing into Blizzard's tables. The game then sends
+-- QUEST_WATCH_LIST_CHANGED and SUPER_TRACKING_CHANGED, and Blizzard's own
+-- frames update from those events.
+local function FocusQuest(entry)
+  local questID = entry.gameID
+  if not C_QuestLog.GetLogIndexForQuestID(questID) then
     return
   end
-  local ignoreWaypoints = true -- the quest's own map, where its pin is
-  local mapID = GetQuestUiMapID(entry.gameID, ignoreWaypoints)
-  if not mapID or mapID == 0 then
-    OpenWorldMap()
+  if not IsTracked(questID) then
+    C_QuestLog.AddQuestWatch(questID)
+  end
+  C_SuperTrack.SetSuperTrackedQuestID(questID)
+end
+
+-- Takes the focus away from the quest, when it still has it, the way the
+-- game does for a quest that the player turns in (SuperTrackEventMixin in
+-- Blizzard_FrameXMLUtil/Mainline/Blizzard_QuestSuperTracking.lua). The
+-- quest stays tracked. Combat and taint as for FocusQuest.
+local function RemoveFocus(entry)
+  if C_SuperTrack.GetSuperTrackedQuestID() == entry.gameID then
+    C_SuperTrack.SetSuperTrackedQuestID(0)
+  end
+end
+
+-- Tracks or untracks the quest through the game's own track toggle, the
+-- one that the quest log's menu and the world map call
+-- (QuestMapQuestOptions_TrackQuest in Blizzard_UIPanels_Game/Mainline/
+-- QuestMapFrame.lua), so the game makes its own checks and shows its own
+-- messages: at the limit of tracked quests it shows "You can't track any
+-- more quests." and tracks nothing, and in the New Player Experience it
+-- does not untrack. `track` is what the action's label promised: when the
+-- game's state has already changed since Seek read the quest, nothing
+-- happens, so "Track" never untracks. It also does nothing when the quest
+-- has left the log since Seek read it.
+--
+-- Combat: the toggle calls no protected function; the core blocks this in
+-- combat like every use action. Taint: Blizzard's toggle runs here as
+-- Seek's code, but it only reads, calls the game's C_ functions, and adds
+-- a line to UIErrorsFrame; it writes nothing into Blizzard's tables.
+local function ToggleTracked(entry, track)
+  local questID = entry.gameID
+  if not QuestMapQuestOptions_TrackQuest or not C_QuestLog.GetLogIndexForQuestID(questID)
+      or IsTracked(questID) == track then
     return
   end
-  OpenWorldMap(mapID)
-  EventRegistry:TriggerEvent("MapCanvas.PingQuestID", entry.gameID)
+  QuestMapQuestOptions_TrackQuest(questID)
+end
+
+local function TrackQuest(entry)
+  ToggleTracked(entry, true)
+end
+
+local function UntrackQuest(entry)
+  ToggleTracked(entry, false)
 end
 
 -- Opens the game's Options window at a game option's page, scrolled so
@@ -202,11 +252,11 @@ local function OpenInOptionsWindow(entry)
   end
 end
 
--- Use actions ("use" on an item, "cast" on a spell) go through a secure
--- action button (SecureActionButtonTemplate, Blizzard_FrameXML/
--- SecureTemplates.lua). WoW runs a use action only from Blizzard's secure
--- code, started by a real key press or click; addon code that calls
--- UseItemByName or CastSpellByID itself is blocked. So:
+-- Use on an item and cast on a spell go through a secure action button
+-- (SecureActionButtonTemplate, Blizzard_FrameXML/SecureTemplates.lua). WoW
+-- runs them only from Blizzard's secure code, started by a real key press
+-- or click; addon code that calls UseItemByName or CastSpellByID itself is
+-- blocked. So:
 --   1. Prepare (below): when the core says which use action the next key
 --      press would run, Seek sets the button's attributes. Attributes of a
 --      secure button can only change outside combat; the core prepares
@@ -224,6 +274,10 @@ end
 -- the search bar protected too, and it could no longer open and close in
 -- combat. It is hidden; a key binding clicks it all the same.
 local USE_BUTTON_NAME = "SeekUseButton"
+
+-- The use actions that run through the secure button. The others run from
+-- Run (see the list of actions at the end).
+local ON_USE_BUTTON = { useItem = true, castSpell = true }
 
 local useButton = CreateFrame("Button", USE_BUTTON_NAME, UIParent, "SecureActionButtonTemplate")
 
@@ -296,17 +350,29 @@ function ns.PreparedUseAction()
   return preparedID
 end
 
+-- Whether the use action that the core asked for last (the one that the
+-- player's next key press would run, see Prepare) runs through the secure
+-- button, whether or not the button is ready for it. False when the core
+-- asked for none (always in combat), and for a use action that Run runs
+-- itself: the search bar sends the key to the core for that one.
+function ns.UseButtonRequested()
+  return requested ~= nil and ON_USE_BUTTON[requested.id] == true
+end
+
 -- The key press on the secure button has already run the use action.
 local function AlreadyRun() end
 
 -- Each action id from the kind registry (core/Kinds.lua) and how to run it.
 local run = {
   showInBag = ShowInBag,
-  openQuestLog = OpenQuestLog,
   showOnMap = ShowOnMap,
   openInOptionsWindow = OpenInOptionsWindow,
   useItem = AlreadyRun,
   castSpell = AlreadyRun,
+  focusQuest = FocusQuest,
+  removeFocus = RemoveFocus,
+  trackQuest = TrackQuest,
+  untrackQuest = UntrackQuest,
 }
 
 ns.SetActionAdapter({

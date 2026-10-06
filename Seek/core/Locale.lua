@@ -33,9 +33,12 @@ ns.L = {
 
   -- The actions' names, as the action list shows them
   ACTION_SHOW_IN_BAG = "Show in bag",
-  ACTION_SHOW_IN_QUEST_LOG = "Show in quest log",
   ACTION_SHOW_ON_MAP = "Show on map",
   ACTION_OPEN_IN_OPTIONS_WINDOW = "Open in the Options window",
+  ACTION_FOCUS = "Focus",
+  ACTION_REMOVE_FOCUS = "Remove Focus",
+  ACTION_TRACK = "Track",
+  ACTION_UNTRACK = "Untrack",
   ACTION_USE = "Use",
   ACTION_CAST = "Cast",
   ACTION_FORGET = "Remove from recent",

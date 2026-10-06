@@ -19,11 +19,15 @@
 --           (Kinds.lua). An item in another character's bags has none.
 --   usable  (items) true when the player can use the item, such as a
 --           Hearthstone; only then does it get the "use" action (Kinds.lua)
+--   tracked (quests) true when the quest is a tracked quest; it then gets
+--           "untrack" in place of "track" (Kinds.lua)
+--   focused (quests) true when the quest has the focus; it then gets
+--           "remove focus" in place of "focus" (Kinds.lua)
 --   page    (game options) the name of the game option page that holds the
 --           game option, such as "Controls"; nil for a game option page
 -- Seek rejects (leaves out) an entry with no name or an unknown kind, and
--- leaves out long text and a page that are not strings. Any `inBags` or
--- `usable` other than true counts as false.
+-- leaves out long text and a page that are not strings. Any `inBags`,
+-- `usable`, `tracked`, or `focused` other than true counts as false.
 --
 -- When its data changes, a source calls NotifyChanged(id). Seek then reads
 -- it again and replaces all of its old entries.
@@ -86,6 +90,8 @@ local function Accept(entry)
     longText = type(entry.longText) == "string" and entry.longText or nil,
     inBags = entry.inBags == true or nil,
     usable = entry.usable == true or nil,
+    tracked = entry.tracked == true or nil,
+    focused = entry.focused == true or nil,
     page = type(entry.page) == "string" and entry.page or nil,
   }
 end
@@ -101,6 +107,8 @@ local function Prepare(copy)
     owner = copy.owner,
     inBags = copy.inBags,
     usable = copy.usable,
+    tracked = copy.tracked,
+    focused = copy.focused,
     page = copy.page,
     match = ns.PrepareName(copy.name),
     longTextMatch = copy.longText and ns.PrepareLongText(copy.longText),

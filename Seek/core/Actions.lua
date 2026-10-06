@@ -9,12 +9,13 @@
 --                             them
 --   Prepare(actionID, entry)  (optional) gets ready the use action that the
 --                             player's next key press would run, or none
---                             when actionID is nil. WoW runs a use action
+--                             when actionID is nil. WoW runs some use
+--                             actions (using an item, casting a spell)
 --                             only from a real key press on a secure button
 --                             that was set up before the press, outside
 --                             combat. The core calls it each time that use
---                             action changes, and never with a use action
---                             that combat blocks.
+--                             action changes, for every use action, and
+--                             never with a use action that combat blocks.
 local _, ns = ...
 
 local adapter

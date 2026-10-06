@@ -3,8 +3,8 @@
 -- the view state that comes back. It keeps no search state of its own.
 --
 -- A plain (not protected) frame, so it can open and close in combat. It has
--- no protected children: the secure button for use actions is not part of
--- it (adapters/wow/Actions.lua).
+-- no protected children: the secure button for items and spells is not
+-- part of it (adapters/wow/Actions.lua).
 local _, ns = ...
 
 local L = ns.L
@@ -347,9 +347,12 @@ end
 -- Keys for use actions: how Enter in the action list, and the use key on
 -- the results, reach the secure button.
 --
--- While the text box has keyboard focus, no key binding fires, and a use
--- action needs a key binding: WoW runs it only from a real key press on a
--- secure button (adapters/wow/Actions.lua).
+-- While the text box has keyboard focus, no key binding fires, and use on
+-- an item or cast on a spell needs a key binding: WoW runs it only from a
+-- real key press on a secure button (adapters/wow/Actions.lua). The other
+-- use actions (a quest's focus and tracking) need no secure button: Enter
+-- and the use key go to the core for them, as for a show action, and the
+-- action adapter runs them (see PressEnter and PressUseKey).
 --
 -- List keys: while the action list is open outside combat, the text box
 -- gives up the focus, and the list takes the keyboard with `keys`, a plain
@@ -467,27 +470,35 @@ local function UseActionReady(action)
 end
 
 -- Enter, from the text box or the list keys, when it does not click the
--- secure button. A use action that combat does not block runs only through
--- that button (a blocked one goes to the core, which does nothing): from
--- here, the core would close the bar and nothing would run, so Enter does
--- nothing.
+-- secure button. In the action list, a use action that runs through that
+-- button (the core asked the action adapter for it, so combat does not
+-- block it) runs only from there: from here, the core would close the bar
+-- and nothing would run, so Enter does nothing. Every other action goes to
+-- the core: a show action, a use action that the action adapter runs
+-- itself, and a blocked one, which the core does not run. On the results,
+-- Enter runs the main action, a show action.
 local function PressEnter()
-  local action = SelectedAction(session:View())
-  if action and action.type == "use" and not action.blocked then
+  if session:View().actionList and ns.UseButtonRequested() then
     return
   end
   Render(session:PressKey("ENTER"))
 end
 
 -- The use key, from the text box, when it does not click the secure button.
--- Outside combat, the selected result's use action runs only through that
--- button: from here, the core would close the bar and nothing would run, so
--- the use key does nothing (on a result with no use action, the core would
--- do nothing either). In combat, the core blocks it and marks the result.
+-- The core asked the action adapter for the selected result's first use
+-- action, unless combat blocks it. When that runs through the secure
+-- button, it runs only from there: from here, the core would close the bar
+-- and nothing would run, so the use key does nothing. Otherwise the use
+-- key goes to the core: it runs a use action that the action adapter runs
+-- itself (a quest's focus), does nothing on a result with no use action,
+-- and in combat blocks the use action and marks the result. The text box
+-- can get the use key after the secure button has run and closed the bar;
+-- then it does nothing either.
 local function PressUseKey()
-  if inCombat then
-    Render(session:PressKey("USE"))
+  if not session:View().open or ns.UseButtonRequested() then
+    return
   end
+  Render(session:PressKey("USE"))
 end
 
 -- Takes or gives back the keyboard for the action list, and binds the keys
@@ -572,7 +583,7 @@ end)
 -- use actions); the handler also keeps the text box from losing focus on
 -- its own. With the use key's modifier held, this is the use key, which
 -- never runs Enter's action: it goes to the secure button through its key
--- binding, or, in combat, to the core (see PressUseKey).
+-- binding, or to the core (see PressUseKey).
 box:SetScript("OnEnterPressed", function()
   if USE_KEY.ModifierDown() then
     PressUseKey()

@@ -24,6 +24,10 @@
 --          fact, one in `needs` and one in `lacks`, give an entry one of
 --          the two, so the label follows the fact: "Focus" on a quest
 --          without the focus, "Remove Focus" on the focused quest
+--   cooldown (optional) true on a use action that the game can put on a
+--          cooldown (see GLOSSARY.md): using an item, casting a spell. A
+--          result whose first use action has it may show its cooldown; the
+--          search bar window reads the cooldown live (SearchSession.lua)
 -- An entry gets only those of its kind's actions that it can do. Its first
 -- action is its main action, which Enter runs, when it is a show action;
 -- Enter never changes anything in the game; the use key runs the entry's
@@ -44,7 +48,7 @@ ns.kinds = {
     -- an item in another character's bags has no actions.
     actions = {
       { id = "showInBag", label = L.ACTION_SHOW_IN_BAG, type = "show", needs = { "inBags" } },
-      { id = "useItem", label = L.ACTION_USE, type = "use", needs = { "inBags", "usable" } },
+      { id = "useItem", label = L.ACTION_USE, type = "use", needs = { "inBags", "usable" }, cooldown = true },
     },
   },
   spell = {
@@ -52,7 +56,7 @@ ns.kinds = {
     actions = {
       -- No show action: opening the spellbook from addon code taints it and
       -- can break casting and the action bars in combat (issue #29).
-      { id = "castSpell", label = L.ACTION_CAST, type = "use" },
+      { id = "castSpell", label = L.ACTION_CAST, type = "use", cooldown = true },
     },
   },
   quest = {

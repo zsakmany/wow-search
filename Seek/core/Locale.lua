@@ -27,6 +27,11 @@ ns.L = {
   -- character's), such as "Item · Bob" or "Item · Bob-Stormrage"
   KIND_WITH_OWNER = "%s · %s",
 
+  -- The kind shown on the row of a result whose cooldown runs: the kind,
+  -- and the time left in the game's own short format, such as "Item · 12 m"
+  -- or "Spell · 45 s"
+  KIND_WITH_COOLDOWN = "%s · %s",
+
   -- The name on the row of a game option: its name, and the game option
   -- page that holds it, such as "Auto Loot · Controls"
   NAME_WITH_PAGE = "%s · %s",

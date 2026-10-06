@@ -308,6 +308,18 @@ local function CountText(entry)
   return nil
 end
 
+-- What a result's row may show a cooldown for (see GLOSSARY.md): the
+-- result's first use action, when that is one with a game cooldown (see
+-- Kinds.lua), and the thing's game ID. Nil for a result with no such use
+-- action. The window reads the cooldown itself, live (docs/adr/0002).
+local function RowCooldown(entry)
+  local action = ns.FirstUseAction(entry)
+  if action and action.cooldown then
+    return { actionID = action.id, gameID = entry.gameID }
+  end
+  return nil
+end
+
 -- The text in place of the results when there are none, or nil: "no
 -- results" for a query, or, for a query that is only a kind's prefix, what
 -- to type. An empty query has the hint instead.
@@ -343,9 +355,15 @@ end
 --              the window must not change this list; the search bar shows
 --              these letters in gold), blocked (true on the selected row
 --              after combat blocked the use key there: the row shows the
---              "blocked in combat" sign), and countText (the item count as
+--              "blocked in combat" sign), countText (the item count as
 --              the row shows it after the name, such as "×57", see
---              CountText; nil for a count of 1 or no count)
+--              CountText; nil for a count of 1 or no count), and cooldown
+--              (what the row may show a cooldown for, see RowCooldown:
+--              `actionID`, the id of the result's first use action, and
+--              `gameID`; nil for a row that never shows one. The window
+--              reads the cooldown live, and shows it only while it runs:
+--              the sweep on the icon, and the time in the kind text, see
+--              KIND_WITH_COOLDOWN in Locale.lua)
 --   scroll     how many results are above the first visible row
 --   total      how many results there are in all
 --   actionList the open action list, else nil. It belongs to the selected
@@ -378,6 +396,7 @@ function SearchSession:View()
       blocked = i == self.selection and SameThing(entry, self.useKeyBlockedEntry),
       matchedLetters = self.matchedLetters[entry],
       countText = CountText(entry),
+      cooldown = RowCooldown(entry),
     }
   end
   local actionList

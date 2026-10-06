@@ -104,10 +104,14 @@ end
 -- result (no actions, such as an item in another character's bags) has a
 -- gray icon and dim text; its row is lit as brightly when selected. After
 -- combat blocked the use key on the selected row, the row shows the
--- "blocked in combat" sign in place of the kind. The core sends as many
--- rows as the visible results setting says; rows are made when more rows
--- than before first need them. Rows do not react to the mouse (yet).
+-- "blocked in combat" sign in place of the kind. While the cooldown of a
+-- row's thing runs, the row shows it (see RenderCooldown). The core sends
+-- as many rows as the visible results setting says; rows are made when
+-- more rows than before first need them. Rows do not react to the mouse
+-- (yet).
 local rows = {}
+
+local RenderRowCooldown -- defined below; a row's sweep calls it when it ends
 
 local function Row(i)
   if rows[i] then
@@ -140,9 +144,44 @@ local function Row(i)
   row.count = row:CreateFontString(nil, "ARTWORK", "GameFontDisable")
   row.count:SetPoint("LEFT", row.name, "RIGHT", ROW_COUNT_GAP, 0)
 
+  -- The game's cooldown sweep, over the icon, as on the bags and the action
+  -- bars (CooldownFrameTemplate). No countdown numbers on the small icon
+  -- (the time shows in the kind text) and no flash at the end. When the
+  -- sweep ends, the time in the kind text goes at once, not at the next
+  -- tick.
+  row.sweep = CreateFrame("Cooldown", nil, row, "CooldownFrameTemplate")
+  row.sweep:ClearAllPoints()
+  row.sweep:SetAllPoints(row.icon)
+  row.sweep:SetHideCountdownNumbers(true)
+  row.sweep:SetDrawBling(false)
+  row.sweep:SetScript("OnCooldownDone", function()
+    if row:IsVisible() then
+      RenderRowCooldown(row)
+    end
+  end)
+
   row:Hide()
   rows[i] = row
   return row
+end
+
+-- A hidden text in the kind text's font, to measure the width of a text
+-- that stands in for the kind text (see KindWidth).
+local measure = frame:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+measure:Hide()
+
+-- The width of a row's kind text. With a secret time in it (a spell's
+-- cooldown in combat, see RenderCooldown), the game can make its width
+-- secret too, and a secret value breaks the arithmetic in FitName: then
+-- measure the row's stand-in text instead, the same text with a time that
+-- is about as wide and never secret.
+local function KindWidth(row)
+  local width = row.kind:GetStringWidth()
+  if issecretvalue(width) then
+    measure:SetText(row.kindStandIn)
+    width = measure:GetStringWidth()
+  end
+  return width
 end
 
 -- Makes a row's name as wide as its text, but cuts it short where it would
@@ -150,8 +189,7 @@ end
 -- right after the name, also after a long name. Call it after the name,
 -- the count, and the kind text are set.
 local function FitName(row)
-  local room = frame:GetWidth() - 2 * ROW_INSET - ROW_NAME_LEFT - ROW_KIND_GAP - row.kind:GetStringWidth()
-    - ROW_KIND_RIGHT
+  local room = frame:GetWidth() - 2 * ROW_INSET - ROW_NAME_LEFT - ROW_KIND_GAP - KindWidth(row) - ROW_KIND_RIGHT
   if row.count:IsShown() then
     room = room - ROW_COUNT_GAP - row.count:GetStringWidth()
   end
@@ -326,6 +364,48 @@ local function RenderTooltip(view)
   tooltipShown = shown
 end
 
+-- Shows the cooldown of a row's thing while it runs, read live
+-- (adapters/wow/Cooldowns.lua): the game's sweep on the icon, and the time
+-- left in the kind text ("Item · 12 m"); or clears both, when the row may
+-- show none (`row.cooldownOf` is nil), when its thing is ready, and when
+-- only the global cooldown runs. The blocked sign keeps its place: then
+-- only the sweep shows. Rows are reused, so this also clears what a row
+-- showed for its last result. Works in combat: the cooldown and its time
+-- go to the game as they are, secret or not, and nothing here compares or
+-- measures them. A sweep is cleared only when it shows, so that a clear
+-- never calls this again through OnCooldownDone.
+local function RenderCooldown(row)
+  local cooldown = row.cooldownOf and ns.ReadCooldown(row.cooldownOf)
+  if cooldown then
+    row.sweep:SetCooldownFromDurationObject(cooldown)
+  elseif row.sweepShown then
+    row.sweep:Clear()
+  end
+  row.sweepShown = cooldown ~= nil
+  if cooldown and not row.blocked then
+    row.kind:SetFormattedText(L.KIND_WITH_COOLDOWN, row.kindText, ns.CooldownTimeText(cooldown))
+    row.kindStandIn = L.KIND_WITH_COOLDOWN:format(row.kindText, ns.WIDE_COOLDOWN_TIME_TEXT)
+  else
+    row.kind:SetText(row.kindText)
+    row.kindStandIn = row.kindText
+  end
+end
+
+-- Reads a row's cooldown again, and fits its name to the new kind text.
+function RenderRowCooldown(row)
+  RenderCooldown(row)
+  FitName(row)
+end
+
+-- Reads the cooldowns of the shown rows again (see ns.WatchCooldowns).
+local function RenderCooldowns()
+  for _, row in ipairs(rows) do
+    if row:IsShown() and row.cooldownOf then
+      RenderRowCooldown(row)
+    end
+  end
+end
+
 -- Shows the query, the hint, the result rows, the "no results" text, and
 -- the action list.
 local function RenderContent(view)
@@ -342,13 +422,11 @@ local function RenderContent(view)
     if result then
       row.icon:SetTexture(result.icon or QUESTION_MARK_ICON)
       row.name:SetText(ColoredName(result.name, result.matchedLetters))
-      if result.blocked then
-        row.kind:SetFontObject("GameFontRedSmall")
-        row.kind:SetText(L.BLOCKED_IN_COMBAT)
-      else
-        row.kind:SetFontObject("GameFontDisableSmall")
-        row.kind:SetText(result.kindLabel)
-      end
+      row.kind:SetFontObject(result.blocked and "GameFontRedSmall" or "GameFontDisableSmall")
+      row.kindText = result.blocked and L.BLOCKED_IN_COMBAT or result.kindLabel
+      row.blocked = result.blocked
+      row.cooldownOf = result.cooldown
+      RenderCooldown(row)
       row.count:SetText(result.countText or "")
       row.count:SetShown(result.countText ~= nil)
       FitName(row)
@@ -361,6 +439,8 @@ local function RenderContent(view)
       row.selection:SetShown(result.selected)
       row:Show()
     else
+      row.cooldownOf = nil
+      RenderCooldown(row)
       row:Hide()
     end
   end
@@ -729,6 +809,9 @@ combatEvents:SetScript("OnEvent", function(_, event)
     end
   end
 end)
+
+-- Keep the shown rows' cooldowns live while the bar is open.
+ns.WatchCooldowns(frame, RenderCooldowns)
 
 frame.CloseButton:SetScript("OnClick", function()
   Render(session:Close())

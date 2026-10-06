@@ -43,6 +43,7 @@ adapters\wow\Settings.lua
 adapters\wow\Clock.lua
 adapters\wow\Scheduler.lua
 adapters\wow\Actions.lua
+adapters\wow\Cooldowns.lua
 adapters\wow\SearchBar.lua
 adapters\wow\Opening.lua
 adapters\wow\MinimapIcon.lua

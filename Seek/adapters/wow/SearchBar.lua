@@ -365,10 +365,13 @@ end
 -- When the list closes, or combat starts, the text box gets the focus back
 -- (unless the bar closed).
 --
--- The use key: while the action list is closed outside combat, and the
--- action adapter has prepared the selected result's first use action, a
--- priority override binding (also owned by `keys`) binds the use key to a
--- click on the secure button. The text box keeps the focus, so typing, copy
+-- The use key: while the action list is closed outside combat, the text box
+-- has the focus, and the action adapter has prepared the selected result's
+-- first use action, a priority override binding (also owned by `keys`)
+-- binds the use key to a click on the secure button. When the text box
+-- loses the focus (a click on the game world), the binding goes, so the use
+-- key is the player's own key again; it comes back with the focus. The text
+-- box keeps the focus, so typing, copy
 -- and paste, and the other keys work as before: its OnKeyDown lets only the
 -- use key go on to the key bindings (SetPropagateKeyboardInput), and keeps
 -- every other key. The text box's own OnEnterPressed also runs for the use
@@ -438,11 +441,12 @@ end
 -- Gives the keyboard back from the list keys. `focus` gives the focus back
 -- to the text box. EnableKeyboard works in combat on a plain frame.
 local function LeaveListKeys(focus)
+  local hadListKeys = listKeys
+  listKeys = false
   keys:EnableKeyboard(false)
-  if listKeys and focus then
+  if hadListKeys and focus then
     box:SetFocus()
   end
-  listKeys = false
 end
 
 -- The selected row of the action list in a view, or nil.
@@ -491,15 +495,19 @@ end
 local function RenderKeys(view)
   local outsideCombat = not inCombat and not InCombatLockdown()
   if view.open and view.actionList and outsideCombat then
-    box:ClearFocus()
+    -- The list keys first, so that the text box's lost focus does not close
+    -- the bar (see OnEditFocusLost).
     keys:EnableKeyboard(true)
     listKeys = true
+    box:ClearFocus()
     BindKeys(UseActionReady(SelectedAction(view)) and ENTER_BINDING or nil)
   else
     LeaveListKeys(view.open)
     -- With the action list closed, the core prepares the selected result's
-    -- first use action, if it has one.
-    local useKeyReady = view.open and not view.actionList and outsideCombat and ns.PreparedUseAction() ~= nil
+    -- first use action, if it has one. The use key works only while the
+    -- text box has the focus.
+    local useKeyReady = view.open and not view.actionList and outsideCombat and box:HasFocus()
+      and ns.PreparedUseAction() ~= nil
     BindKeys(useKeyReady and USE_KEY_BINDING or nil)
   end
   if buttonBinding ~= USE_KEY_BINDING then
@@ -525,9 +533,10 @@ function Render(view)
       end)
     end
   else
-    -- Give the keyboard back, so the player's key bindings work again.
-    box:ClearFocus()
+    -- Give the keyboard back, so the player's key bindings work again. Hide
+    -- first, so that the lost focus does not close the bar a second time.
     frame:Hide()
+    box:ClearFocus()
   end
   RenderTooltip(view)
 end
@@ -590,6 +599,24 @@ box:SetScript("OnKeyDown", function(self, key)
   end
   if GetBindingAction(chord) == "SEEK_TOGGLE" then
     ns.ToggleSearchBar()
+  end
+end)
+
+-- The text box gained the focus: set the use key's binding (see "The use
+-- key" above). The template's own focus scripts stay.
+box:HookScript("OnEditFocusGained", function()
+  if frame:IsShown() then
+    RenderKeys(session:View())
+  end
+end)
+
+-- The text box lost the focus while the bar is open, and not to the list
+-- keys: the player clicked outside the bar (on the game world, for
+-- example). Close the bar, like a command palette in other apps; the Seek
+-- key opens it again. Closing also clears the use key's binding.
+box:HookScript("OnEditFocusLost", function()
+  if frame:IsShown() and not listKeys then
+    Render(session:Close())
   end
 end)
 

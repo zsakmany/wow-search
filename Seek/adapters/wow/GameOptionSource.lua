@@ -23,14 +23,13 @@ local SOURCE_ID = "Seek.GameOptions"
 -- The Settings API gives no icon for a game option; all share this one.
 local GAME_OPTION_ICON = "Interface\\Icons\\INV_Misc_Gear_01"
 
--- The text of a row's or a page's name, or of a row's explanation, which can
--- be a string or a function that gives one. Nil when there is no text, or
--- when the function fails.
-local function ResolveText(value)
-  if type(value) == "function" then
-    local ok, text = pcall(value)
-    value = ok and text or nil
-  end
+-- The text of a row's or a page's name, or of a row's explanation, or nil.
+-- The Settings API can also give a function that makes the text, but Seek
+-- never calls it: it is Blizzard's code, and called from Seek it runs as
+-- Seek's. Some of these functions use calls that only Blizzard's code may
+-- make; the Discord button's explanation asks C_Discord.IsUserOAuthed(),
+-- and the game blocked Seek with "only available to the Blizzard UI".
+local function PlainText(value)
   if type(value) == "string" and value ~= "" then
     return value
   end
@@ -43,7 +42,7 @@ end
 -- but no hidden key binding page.
 local function EachPage(visit)
   local function VisitPage(page)
-    local name = not page.redirectCategory and ResolveText(page:GetQualifiedName())
+    local name = not page.redirectCategory and PlainText(page:GetQualifiedName())
     if name then
       visit(page, name)
     end
@@ -58,7 +57,9 @@ local function EachPage(visit)
   end
 end
 
--- Whether the row is shown now. A failing check counts as hidden.
+-- Whether the row is shown now. A failing check counts as hidden. This runs
+-- Blizzard's checks as Seek's code too (see PlainText); in the WoW Forever
+-- beta none of them made a call that the game blocks (issue #25).
 local function IsShown(initializer)
   local ok, shown = pcall(initializer.ShouldShow, initializer)
   return ok and shown
@@ -81,9 +82,9 @@ local function EachGameOption(page, visit)
     if type(data) == "table" and (data.setting or data.buttonClick)
         and not (initializer.IsSearchIgnoredInLayout and initializer:IsSearchIgnoredInLayout(layout))
         and IsShown(initializer) then
-      local name = ResolveText(data.name) or (initializer.GetName and ResolveText(initializer:GetName()))
+      local name = PlainText(data.name) or (initializer.GetName and PlainText(initializer:GetName()))
       if name then
-        visit(name, ResolveText(data.tooltip))
+        visit(name, PlainText(data.tooltip))
       end
     end
   end

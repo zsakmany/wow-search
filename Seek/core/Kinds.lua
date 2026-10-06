@@ -50,6 +50,15 @@ ns.kinds = {
       { id = "showOnMap", label = L.ACTION_SHOW_ON_MAP, type = "show" },
     },
   },
+  -- A game option or a game option page (see GLOSSARY.md): both have this
+  -- kind. Opening the Options window from addon code is blocked in combat;
+  -- then the action does nothing (issue #28).
+  gameOption = {
+    label = L.KIND_GAME_OPTION,
+    actions = {
+      { id = "openInOptionsWindow", label = L.ACTION_OPEN_IN_OPTIONS_WINDOW, type = "show" },
+    },
+  },
 }
 
 -- Check the rules above when the addon loads, so a wrong kind fails at once.

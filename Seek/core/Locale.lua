@@ -16,16 +16,22 @@ ns.L = {
   KIND_ITEM = "Item",
   KIND_SPELL = "Spell",
   KIND_QUEST = "Quest",
+  KIND_GAME_OPTION = "Game option",
 
   -- The kind shown on the row of another character's result: the kind, and
   -- the owner's name (with the realm when it is not the current
   -- character's), such as "Item · Bob" or "Item · Bob-Stormrage"
   KIND_WITH_OWNER = "%s · %s",
 
+  -- The name on the row of a game option: its name, and the game option
+  -- page that holds it, such as "Auto Loot · Controls"
+  NAME_WITH_PAGE = "%s · %s",
+
   -- The actions' names, as the action list shows them
   ACTION_SHOW_IN_BAG = "Show in bag",
   ACTION_SHOW_IN_QUEST_LOG = "Show in quest log",
   ACTION_SHOW_ON_MAP = "Show on map",
+  ACTION_OPEN_IN_OPTIONS_WINDOW = "Open in the Options window",
   ACTION_USE = "Use",
   ACTION_CAST = "Cast",
 

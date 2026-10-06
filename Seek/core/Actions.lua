@@ -5,7 +5,8 @@
 -- An action adapter is a table with these methods:
 --   Run(actionID, entry)      runs the action with this id (see Kinds.lua)
 --                             for the entry, which has name, kind, icon,
---                             gameID, and owner, as the source gave them
+--                             gameID, owner, and page, as the source gave
+--                             them
 --   Prepare(actionID, entry)  (optional) gets ready the use action that the
 --                             player's next key press would run, or none
 --                             when actionID is nil. WoW runs a use action
@@ -32,6 +33,7 @@ local function AdapterEntry(entry)
     icon = entry.icon,
     gameID = entry.gameID,
     owner = entry.owner,
+    page = entry.page,
   }
 end
 

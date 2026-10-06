@@ -19,9 +19,11 @@
 --           (Kinds.lua). An item in another character's bags has none.
 --   usable  (items) true when the player can use the item, such as a
 --           Hearthstone; only then does it get the "use" action (Kinds.lua)
+--   page    (game options) the name of the game option page that holds the
+--           game option, such as "Controls"; nil for a game option page
 -- Seek rejects (leaves out) an entry with no name or an unknown kind, and
--- leaves out long text that is not a string. Any `inBags` or `usable` other
--- than true counts as false.
+-- leaves out long text and a page that are not strings. Any `inBags` or
+-- `usable` other than true counts as false.
 --
 -- When its data changes, a source calls NotifyChanged(id). Seek then reads
 -- it again and replaces all of its old entries.
@@ -84,6 +86,7 @@ local function Accept(entry)
     longText = type(entry.longText) == "string" and entry.longText or nil,
     inBags = entry.inBags == true or nil,
     usable = entry.usable == true or nil,
+    page = type(entry.page) == "string" and entry.page or nil,
   }
 end
 
@@ -98,6 +101,7 @@ local function Prepare(copy)
     owner = copy.owner,
     inBags = copy.inBags,
     usable = copy.usable,
+    page = copy.page,
     match = ns.PrepareName(copy.name),
     longTextMatch = copy.longText and ns.PrepareLongText(copy.longText),
     sortName = copy.name:lower(),

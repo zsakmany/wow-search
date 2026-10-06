@@ -244,6 +244,16 @@ local function OwnerText(entry, current)
   return entry.owner
 end
 
+-- A result's name as its row shows it: a game option's name comes with the
+-- game option page that holds it ("Auto Loot · Controls"). The name comes
+-- first, so the matched letters' positions stay the same.
+local function RowName(entry)
+  if entry.page then
+    return L.NAME_WITH_PAGE:format(entry.name, entry.page)
+  end
+  return entry.name
+end
+
 -- The view state for the search bar. A new table on each call, so the
 -- window can keep it without seeing later changes:
 --   open       whether the search bar is open
@@ -253,7 +263,8 @@ end
 --   noResults  the "no results" text when the query matches nothing, else nil
 --   results    the visible results (at most as many as the visible
 --              results setting says), top to bottom; each has
---              name, icon, kind, gameID (the game's ID for the thing, from
+--              name (with the page for a game option, see RowName),
+--              icon, kind, gameID (the game's ID for the thing, from
 --              the entry), kindLabel (the kind, with the owner's name for
 --              another character's result, see OwnerText: the row's kind
 --              text), faded (true for a result with no actions:
@@ -286,7 +297,7 @@ function SearchSession:View()
     local owner = OwnerText(entry, current)
     local kindLabel = ns.kinds[entry.kind].label
     rows[#rows + 1] = {
-      name = entry.name,
+      name = RowName(entry),
       icon = entry.icon,
       kind = entry.kind,
       gameID = entry.gameID,

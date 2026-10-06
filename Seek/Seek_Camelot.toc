@@ -1,6 +1,6 @@
 ## Interface: 16001
 ## Title: Seek
-## Notes: A search bar for your bags, spells, and quests, and your other characters' bags.
+## Notes: A search bar for your bags, spells, quests, and game options, and your other characters' bags.
 ## SavedVariables: SeekSuggestedKey, SeekSettings, SeekAccountData, SeekMinimapIcon
 ## SavedVariablesPerCharacter: SeekSavedCopy, SeekCharacterSettings
 ## AddonCompartmentFunc: Seek_OnAddonCompartmentClick
@@ -51,3 +51,4 @@ adapters\wow\LongText.lua
 adapters\wow\BagSource.lua
 adapters\wow\SpellSource.lua
 adapters\wow\QuestSource.lua
+adapters\wow\GameOptionSource.lua

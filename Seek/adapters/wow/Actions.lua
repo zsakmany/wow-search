@@ -171,6 +171,37 @@ local function ShowOnMap(entry)
   EventRegistry:TriggerEvent("MapCanvas.PingQuestID", entry.gameID)
 end
 
+-- Opens the game's Options window at a game option's page, scrolled so
+-- that the game option's row is at the top (it is not highlighted), or at a
+-- game option page. The page is looked up again by its name: its ID can
+-- change between sessions (see adapters/wow/GameOptionSource.lua). The
+-- scroll finds the row by its name, which is the entry's name.
+--
+-- Not in combat: Blizzard lets no addon open the Options window in combat
+-- (ADDON_ACTION_BLOCKED), so in combat this does nothing (issue #28). It
+-- also does nothing when the page is gone since Seek read it.
+--
+-- Taint: Settings.OpenToCategory only asks the game to open the window; the
+-- game then sends SETTINGS_PANEL_OPEN, and Blizzard's own code opens the
+-- window and the page from that event. A test in the game showed that the
+-- window's state (its search text, its page, its layout) stays secure, and
+-- that casting and using items still work afterwards. Seek never fills in
+-- the window's own search box: that taints it until a /reload.
+local function OpenInOptionsWindow(entry)
+  if InCombatLockdown() then
+    return
+  end
+  local pageID = ns.GameOptionPageID(entry.page or entry.name)
+  if not pageID then
+    return
+  end
+  if entry.page then
+    Settings.OpenToCategory(pageID, entry.name)
+  else
+    Settings.OpenToCategory(pageID)
+  end
+end
+
 -- Use actions ("use" on an item, "cast" on a spell) go through a secure
 -- action button (SecureActionButtonTemplate, Blizzard_FrameXML/
 -- SecureTemplates.lua). WoW runs a use action only from Blizzard's secure
@@ -273,6 +304,7 @@ local run = {
   showInBag = ShowInBag,
   openQuestLog = OpenQuestLog,
   showOnMap = ShowOnMap,
+  openInOptionsWindow = OpenInOptionsWindow,
   useItem = AlreadyRun,
   castSpell = AlreadyRun,
 }

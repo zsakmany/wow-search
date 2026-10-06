@@ -119,6 +119,13 @@ local function RegisterPage()
   Settings.CreateCheckbox(page, minimapIconSetting, L.SETTING_MINIMAP_ICON_TOOLTIP)
 
   Settings.RegisterAddOnCategory(page)
+  -- The game option source lists the page's settings as game options.
+  ns.GameOptionPageAdded()
+end
+
+-- Seek's page in the Options window, or nil before it is registered.
+function ns.SettingsPage()
+  return page
 end
 
 -- Opens the Options window at Seek's page (/seek settings, a right click on

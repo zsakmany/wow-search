@@ -22,6 +22,11 @@ local _, ns = ...
 -- an item, which never shows.
 local GLOBAL_COOLDOWN_MAX = 1.5
 
+-- An item's cooldown with less than this many seconds left counts as
+-- ended: when the sweep ends, the game's time can still be a hair before
+-- the end, and the row would show the cooldown again for a moment.
+local ENDED_MARGIN = 0.1
+
 local SECONDS_PER_MINUTE = 60
 local SECONDS_PER_HOUR = 60 * SECONDS_PER_MINUTE
 local SECONDS_PER_DAY = 24 * SECONDS_PER_HOUR
@@ -67,7 +72,8 @@ local function ItemCooldown(itemID)
   if start == nil or issecretvalue(start) or issecretvalue(duration) or issecretvalue(enable) then
     return nil
   end
-  if not enable or enable == 0 or duration <= GLOBAL_COOLDOWN_MAX or start + duration <= GetTime() then
+  if not enable or enable == 0 or duration <= GLOBAL_COOLDOWN_MAX
+      or start + duration - GetTime() < ENDED_MARGIN then
     return nil
   end
   local cooldown = C_DurationUtil.CreateDuration()
@@ -90,15 +96,15 @@ local function HasChargeLeft(spellID)
 end
 
 -- A spell's running cooldown as a duration object, or nil when none runs.
--- The never-secret flags decide: isActive (false for a ready spell, and
--- for a cooldown on hold) and isOnGCD (true when only the global cooldown
--- runs); then the charges (see HasChargeLeft). The duration leaves the
--- global cooldown out (ignoreGCD). isOnGCD can be stale outside
--- SPELL_UPDATE_COOLDOWN; then a zero duration still tells that only the
--- global cooldown runs, when that is not secret.
+-- The never-secret isActive flag decides first (false for a ready spell,
+-- and for a cooldown on hold); then the charges (see HasChargeLeft). The
+-- duration leaves the global cooldown out (ignoreGCD), so a zero duration
+-- means that only the global cooldown runs. The isOnGCD flag is not used:
+-- the game trusts it only while it sends SPELL_UPDATE_COOLDOWN, and a
+-- stale one would hide a real cooldown.
 local function SpellCooldown(spellID)
   local info = C_Spell.GetSpellCooldown(spellID)
-  if not info or not info.isActive or info.isOnGCD or HasChargeLeft(spellID) then
+  if not info or not info.isActive or HasChargeLeft(spellID) then
     return nil
   end
   local cooldown = C_Spell.GetSpellCooldownDuration(spellID, true)
@@ -120,14 +126,14 @@ local readCooldown = {
 }
 
 -- The running cooldown of a result row's thing, as a duration object, or
--- nil when none runs. `cooldown` is the row's `cooldown` from the view
--- state (core/SearchSession.lua). Works in combat. The duration object may
+-- nil when none runs. `of` is the row's `cooldownOf` from the view state
+-- (core/SearchSession.lua). Works in combat. The duration object may
 -- hold secret times: pass it on as it is, to Cooldown:
 -- SetCooldownFromDurationObject and to ns.CooldownTimeText, and never read
 -- its times.
-function ns.ReadCooldown(cooldown)
-  local read = readCooldown[cooldown.actionID]
-  return read and read(cooldown.gameID)
+function ns.ReadCooldown(of)
+  local read = readCooldown[of.actionID]
+  return read and read(of.gameID)
 end
 
 -- The time left of a running cooldown (from ns.ReadCooldown), in the game's

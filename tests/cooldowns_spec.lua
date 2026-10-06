@@ -6,16 +6,19 @@
 
 local FakeGame = require("tests.fake_game")
 
+-- An item in the current character's bags; `usable` gives it the use action.
 local function Item(name, itemID, usable)
   return {
     name = name, icon = 134400, kind = "item", gameID = itemID, owner = "Tester", inBags = true, usable = usable,
   }
 end
 
+-- A spell of the current character.
 local function Spell(name, spellID)
   return { name = name, icon = 135812, kind = "spell", gameID = spellID, owner = "Tester" }
 end
 
+-- A quest in the current character's quest log.
 local function Quest(title, questID)
   return { name = title, icon = 133745, kind = "quest", gameID = questID, owner = "Tester" }
 end
@@ -25,7 +28,7 @@ end
 local function Rows(view)
   local rows = {}
   for i, result in ipairs(view.results) do
-    local cooldown = result.cooldown
+    local cooldown = result.cooldownOf
     rows[i] = cooldown and ("%s | cooldown of %s %s"):format(result.name, cooldown.actionID, cooldown.gameID)
       or result.name
   end

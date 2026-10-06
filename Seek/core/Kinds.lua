@@ -27,7 +27,8 @@
 --   cooldown (optional) true on a use action that the game can put on a
 --          cooldown (see GLOSSARY.md): using an item, casting a spell. A
 --          result whose first use action has it may show its cooldown; the
---          search bar window reads the cooldown live (SearchSession.lua)
+--          search bar window reads the cooldown live
+--          (adapters/wow/Cooldowns.lua)
 -- An entry gets only those of its kind's actions that it can do. Its first
 -- action is its main action, which Enter runs, when it is a show action;
 -- Enter never changes anything in the game; the use key runs the entry's

@@ -312,7 +312,7 @@ end
 -- result's first use action, when that is one with a game cooldown (see
 -- Kinds.lua), and the thing's game ID. Nil for a result with no such use
 -- action. The window reads the cooldown itself, live (docs/adr/0002).
-local function RowCooldown(entry)
+local function RowCooldownOf(entry)
   local action = ns.FirstUseAction(entry)
   if action and action.cooldown then
     return { actionID = action.id, gameID = entry.gameID }
@@ -357,8 +357,9 @@ end
 --              after combat blocked the use key there: the row shows the
 --              "blocked in combat" sign), countText (the item count as
 --              the row shows it after the name, such as "×57", see
---              CountText; nil for a count of 1 or no count), and cooldown
---              (what the row may show a cooldown for, see RowCooldown:
+--              CountText; nil for a count of 1 or no count), and
+--              cooldownOf (what the row may show a cooldown for, see
+--              RowCooldownOf:
 --              `actionID`, the id of the result's first use action, and
 --              `gameID`; nil for a row that never shows one. The window
 --              reads the cooldown live, and shows it only while it runs:
@@ -396,7 +397,7 @@ function SearchSession:View()
       blocked = i == self.selection and SameThing(entry, self.useKeyBlockedEntry),
       matchedLetters = self.matchedLetters[entry],
       countText = CountText(entry),
-      cooldown = RowCooldown(entry),
+      cooldownOf = RowCooldownOf(entry),
     }
   end
   local actionList

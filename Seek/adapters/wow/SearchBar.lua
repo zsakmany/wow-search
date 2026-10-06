@@ -111,7 +111,7 @@ end
 -- (yet).
 local rows = {}
 
-local RenderRowCooldown -- defined below; a row's sweep calls it when it ends
+local RenderCooldownAndFitName -- defined below; a row's sweep calls it when it ends
 
 local function Row(i)
   if rows[i] then
@@ -155,8 +155,8 @@ local function Row(i)
   row.sweep:SetHideCountdownNumbers(true)
   row.sweep:SetDrawBling(false)
   row.sweep:SetScript("OnCooldownDone", function()
-    if row:IsVisible() then
-      RenderRowCooldown(row)
+    if row:IsVisible() and not row.renderingCooldown then
+      RenderCooldownAndFitName(row)
     end
   end)
 
@@ -372,16 +372,20 @@ end
 -- only the sweep shows. Rows are reused, so this also clears what a row
 -- showed for its last result. Works in combat: the cooldown and its time
 -- go to the game as they are, secret or not, and nothing here compares or
--- measures them. A sweep is cleared only when it shows, so that a clear
--- never calls this again through OnCooldownDone.
+-- measures them. A sweep is cleared only when it shows. The sweep's
+-- OnCooldownDone ignores what this does to the sweep (`renderingCooldown`),
+-- in case setting or clearing it ends the old sweep at once.
 local function RenderCooldown(row)
   local cooldown = row.cooldownOf and ns.ReadCooldown(row.cooldownOf)
+  local wasShown = row.sweepShown
+  row.sweepShown = cooldown ~= nil
+  row.renderingCooldown = true
   if cooldown then
     row.sweep:SetCooldownFromDurationObject(cooldown)
-  elseif row.sweepShown then
+  elseif wasShown then
     row.sweep:Clear()
   end
-  row.sweepShown = cooldown ~= nil
+  row.renderingCooldown = false
   if cooldown and not row.blocked then
     row.kind:SetFormattedText(L.KIND_WITH_COOLDOWN, row.kindText, ns.CooldownTimeText(cooldown))
     row.kindStandIn = L.KIND_WITH_COOLDOWN:format(row.kindText, ns.WIDE_COOLDOWN_TIME_TEXT)
@@ -392,7 +396,7 @@ local function RenderCooldown(row)
 end
 
 -- Reads a row's cooldown again, and fits its name to the new kind text.
-function RenderRowCooldown(row)
+function RenderCooldownAndFitName(row)
   RenderCooldown(row)
   FitName(row)
 end
@@ -401,7 +405,7 @@ end
 local function RenderCooldowns()
   for _, row in ipairs(rows) do
     if row:IsShown() and row.cooldownOf then
-      RenderRowCooldown(row)
+      RenderCooldownAndFitName(row)
     end
   end
 end
@@ -425,7 +429,7 @@ local function RenderContent(view)
       row.kind:SetFontObject(result.blocked and "GameFontRedSmall" or "GameFontDisableSmall")
       row.kindText = result.blocked and L.BLOCKED_IN_COMBAT or result.kindLabel
       row.blocked = result.blocked
-      row.cooldownOf = result.cooldown
+      row.cooldownOf = result.cooldownOf
       RenderCooldown(row)
       row.count:SetText(result.countText or "")
       row.count:SetShown(result.countText ~= nil)

@@ -6,6 +6,14 @@
 ## AddonCompartmentFunc: Seek_OnAddonCompartmentClick
 ## IconAtlas: common-search-magnifyingglass
 
+# Libraries (libs/README.md), before Seek's own files: LibDBIcon-1.0 for
+# the minimap icon, and the libraries it needs, in the order they need
+# each other.
+libs\LibStub\LibStub.lua
+libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
+libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
+libs\LibDBIcon-1.0\LibDBIcon-1.0.lua
+
 # Core: plain Lua 5.1 that never touches the WoW API (docs/adr/0003-hexagonal-core.md).
 core\Locale.lua
 core\Kinds.lua

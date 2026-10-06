@@ -1,9 +1,9 @@
 -- Picks, seen from the edge of the core: a fake source gives entries through
 -- the public API, the test types a query and presses keys the way the
 -- search bar does, and reads the results in the view state. Each action the
--- core runs is a pick. A fake action adapter takes the actions, a fake
--- combat state blocks use actions, an in-memory storage keeps the picks
--- over a reload, and a fake clock lets days pass.
+-- core runs is a pick, except the forget action. A fake action adapter
+-- takes the actions, a fake combat state blocks use actions, an in-memory
+-- storage keeps the picks over a reload, and a fake clock lets days pass.
 
 local FakeGame = require("tests.fake_game")
 
@@ -365,6 +365,128 @@ describe("picks", function()
       assert.are.equal("Show in bag", view.actionList.rows[1].label)
       session:PressKey("ENTER")
       assert.are.same({ "showInBag 2", "showInBag 1" }, requests)
+    end)
+  end)
+
+  describe("the forget action", function()
+    local FORGET = "Remove from recent"
+
+    -- "Potion 01" to "Potion 03", item IDs 1 to 3; the player picked each
+    -- once, so the empty search bar shows "Potion 03", "Potion 02", and
+    -- "Potion 01".
+    local potions
+    before_each(function()
+      potions = {}
+      for i = 1, 3 do
+        potions[i] = Item(("Potion %02d"):format(i), i, true)
+      end
+      GivenSource("Test.Bags", potions)
+      for i = 1, 3 do
+        Pick(("potion %02d"):format(i), potions[i].name)
+      end
+      requests = {}
+    end)
+
+    -- The labels of the action list's rows, top to bottom.
+    local function ListLabels(view)
+      local labels = {}
+      for i, row in ipairs(view.actionList.rows) do
+        labels[i] = row.label
+      end
+      return labels
+    end
+
+    it("is the last action of a recently picked result", function()
+      session:Open()
+      local view = session:PressKey("TAB")
+      assert.are.same({ "Show in bag", "Use", FORGET }, ListLabels(view))
+      local row = view.actionList.rows[3]
+      assert.are.equal("forget", row.type)
+      assert.is_false(row.blocked)
+      assert.is_false(row.useKey)
+    end)
+
+    -- The player opens the empty search bar, moves down to the result in
+    -- row `row`, opens its action list, moves down to the forget action,
+    -- and presses Enter. Gives the view after it.
+    local function Forget(row)
+      session:Open()
+      for _ = 2, row do
+        session:PressKey("DOWN")
+      end
+      local view = session:PressKey("TAB")
+      for _ = 2, #view.actionList.rows do
+        session:PressKey("DOWN")
+      end
+      return session:PressKey("ENTER")
+    end
+
+    it("removes the thing from the recently picked things, and the search bar stays open", function()
+      local view = Forget(1)
+      assert.is_true(view.open)
+      assert.is_nil(view.actionList)
+      assert.are.same({ "Potion 02", "Potion 01" }, Names(view))
+      assert.are.same({}, requests)
+    end)
+
+    it("removes all picks of the thing, made with any query, and keeps those of other things", function()
+      -- "Potion 01" now has two picks, and ranks first for "potion 0".
+      Pick("pot", "Potion 01")
+      assert.are.same({ "Potion 01", "Potion 02", "Potion 03" }, Search("potion 0"))
+      Forget(1)
+      assert.are.same({ "Potion 02", "Potion 03", "Potion 01" }, Search("potion 0"))
+      assert.are.same({ "Potion 03", "Potion 02" }, Names(session:Open()))
+    end)
+
+    it("keeps the selected row, which is now the next thing", function()
+      local view = Forget(2)
+      assert.are.same({ "Potion 03", "Potion 01" }, Names(view))
+      assert.are.equal("Potion 01", Selected(view))
+    end)
+
+    it("moves the selection up one after it removed the last row", function()
+      local view = Forget(3)
+      assert.are.same({ "Potion 03", "Potion 02" }, Names(view))
+      assert.are.equal("Potion 02", Selected(view))
+    end)
+
+    it("is not in the action list of a result for a typed query", function()
+      session:Open()
+      session:SetQuery("potion")
+      assert.are.same({ "Show in bag", "Use" }, ListLabels(session:PressKey("TAB")))
+    end)
+
+    it("runs in combat", function()
+      game:EnterCombat()
+      local view = Forget(1)
+      assert.are.same({ "Potion 02", "Potion 01" }, Names(view))
+    end)
+
+    it("is never what Enter or the use key runs on a recently picked result", function()
+      assert.is_false(session:Open().results[1].faded)
+      session:PressKey("ENTER")
+      session:Open()
+      session:PressKey("USE")
+      assert.are.same({ "showInBag 3", "useItem 3" }, requests)
+      assert.are.same({ "Potion 03", "Potion 02", "Potion 01" }, Names(session:Open()))
+    end)
+
+    it("is kept over a reload", function()
+      Forget(1)
+      game = game:Reload()
+      GivenSource("Test.Bags", potions)
+      game:Start()
+      session = game.ns.NewSearchSession()
+      assert.are.same({ "Potion 02", "Potion 01" }, Names(session:Open()))
+    end)
+
+    it("leaves the hint when it removed the last recently picked thing", function()
+      Forget(1)
+      Forget(1)
+      local view = Forget(1)
+      assert.is_true(view.open)
+      assert.are.same({}, view.results)
+      assert.are.equal(HINT, view.hint)
     end)
   end)
 

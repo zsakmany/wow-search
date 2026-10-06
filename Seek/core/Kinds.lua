@@ -24,7 +24,8 @@
 -- main action: Enter does nothing for it. An entry with no actions at all
 -- is a faded result (see GLOSSARY.md). The action list shows all of the
 -- entry's actions, in this order: the show actions first, then the use
--- actions.
+-- actions; for a recently picked thing, SearchSession.lua adds the forget
+-- action last, which belongs to no kind.
 local _, ns = ...
 
 local L = ns.L
@@ -89,8 +90,8 @@ local function CanDo(entry, action)
   return true
 end
 
--- All actions of an entry, the main action first: what its action list
--- shows. An action is left out when the entry does not have a fact that it
+-- All of an entry's kind's actions, the main action first: what its
+-- action list shows, besides the forget action. An action is left out when the entry does not have a fact that it
 -- needs.
 function ns.EntryActions(entry)
   local actions = {}

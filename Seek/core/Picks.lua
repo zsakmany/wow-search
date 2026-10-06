@@ -1,5 +1,6 @@
 -- Picks: each time the player runs an action on a result, Seek remembers
--- that thing, so that it ranks higher later (see GLOSSARY.md). A pick is
+-- that thing, so that it ranks higher later (see GLOSSARY.md). The forget
+-- action is not a pick: it removes all picks of a thing. A pick is
 -- the thing's kind and game ID (not its source: the same item from the
 -- bags or the bank is one thing), the query that the player had typed, and
 -- the time (from the Clock port). An entry without a game ID is never
@@ -100,6 +101,11 @@ local function DropOld(now)
   picks = kept
 end
 
+-- Saves the picks through the Storage port.
+local function SavePicks()
+  ns.Save({ picks = { version = SAVED_VERSION, list = picks } })
+end
+
 -- Takes the picks from the saved data (see Storage.lua), if they have the
 -- right shape. ns.Start() calls it.
 function ns.LoadPicks(data)
@@ -127,7 +133,22 @@ function ns.RecordPick(entry, query)
   local now = ns.Now()
   picks[#picks + 1] = { kind = entry.kind, gameID = entry.gameID, query = query, time = now }
   DropOld(now)
-  ns.Save({ picks = { version = SAVED_VERSION, list = picks } })
+  SavePicks()
+end
+
+-- Removes all picks of the thing of `entry` (its kind and game ID),
+-- whatever query each was made with, and saves the picks: the forget
+-- action (see GLOSSARY.md).
+function ns.ForgetPicks(entry)
+  local key = Key(entry)
+  local kept = {}
+  for _, pick in ipairs(picks) do
+    if Key(pick) ~= key then
+      kept[#kept + 1] = pick
+    end
+  end
+  picks = kept
+  SavePicks()
 end
 
 -- How much the picks lift each result of `query`: a function that takes an

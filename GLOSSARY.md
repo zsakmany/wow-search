@@ -45,7 +45,7 @@ The entries that Seek keeps per character between game sessions. Search uses it 
 _Avoid_: Cache, database, snapshot
 
 **Kind**:
-What sort of game thing an entry is, such as item, spell, or quest. Actions belong to the kind, whatever the entry's source; an entry gets only those of its kind's actions that it can do (only a usable item gets the use action).
+What sort of game thing an entry is, such as item, spell, or quest. Show actions and use actions belong to the kind, whatever the entry's source; an entry gets only those of its kind's actions that it can do (only a usable item gets the use action).
 _Avoid_: Type, category
 
 **Owner**:
@@ -57,7 +57,7 @@ An entry that matches the current query and is shown in the search bar. While th
 _Avoid_: Hit, match, suggestion
 
 **Pick**:
-One time that the player ran an action on a result, which Seek remembers so it can rank that thing higher later. A blocked action is not a pick. Seek keeps the picks per character, next to the saved copy.
+One time that the player ran an action on a result, which Seek remembers so it can rank that thing higher later. A blocked action is not a pick, and the forget action is never a pick. Seek keeps the picks per character, next to the saved copy.
 _Avoid_: History, usage, selection (selection is the highlighted row)
 
 **Setting**:
@@ -73,7 +73,7 @@ One page of the game's Options window, such as Audio, which holds game options. 
 _Avoid_: Category, panel, tab, options page
 
 **Action**:
-What happens when the player picks a result. Each action is either a show action or a use action.
+Something the player can run on a result. Each action is a show action, a use action, or the forget action.
 _Avoid_: Command, handler, activation
 
 **Show action**:
@@ -83,6 +83,10 @@ _Avoid_: View, reveal, open
 **Use action**:
 An action that makes the character do the thing, such as casting the spell or using the item. Combat can block it.
 _Avoid_: Do, activate, execute, cast
+
+**Forget action**:
+The action that removes all picks of a recently picked thing, so the thing leaves the recently picked things and its picks no longer lift it. Only a result among the recently picked things has it, as the last action in its action list. It is never a pick and never the main action, combat never blocks it, and the search bar stays open after it.
+_Avoid_: Remove, delete, clear, unpick
 
 **Main action**:
 The one action a result runs when the player presses Enter. It is always a show action; a result with no show action has no main action.

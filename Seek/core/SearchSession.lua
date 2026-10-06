@@ -19,6 +19,21 @@ end
 local SearchSession = {}
 SearchSession.__index = SearchSession
 
+-- The forget action (see GLOSSARY.md): Seek's own action, not a kind's, so
+-- the action adapter never sees it.
+local FORGET = { id = "forget", label = L.ACTION_FORGET, type = "forget" }
+
+-- The actions in the action list of `entry`: its kind's actions, and last
+-- the forget action while the results are the recently picked things (the
+-- typed query is empty).
+local function ListActions(session, entry)
+  local actions = ns.EntryActions(entry)
+  if session.typed == "" then
+    actions[#actions + 1] = FORGET
+  end
+  return actions
+end
+
 -- Whether combat blocks `action` now.
 local function Blocked(action)
   return action.type == "use" and ns.InCombat()
@@ -216,7 +231,7 @@ function SearchSession:Search(keepSelection)
   if list then
     local entry = results[self.selection]
     if keepSelection and SameThing(entry, list.entry) and ns.HasActions(entry) then
-      list.entry, list.actions = entry, ns.EntryActions(entry)
+      list.entry, list.actions = entry, ListActions(self, entry)
       self:MoveInActionList(0)
     else
       self.actionList = nil
@@ -324,7 +339,8 @@ end
 --   total      how many results there are in all
 --   actionList the open action list, else nil. It belongs to the selected
 --              result. `rows` holds the actions, top to bottom; each has
---              id, label, type ("show" or "use"), selected (true on one
+--              id, label, type ("show", "use", or "forget" for the
+--              forget action, see ListActions), selected (true on one
 --              row), blocked (true when combat blocks the action: the
 --              row shows the "blocked in combat" sign), and useKey (true on
 --              the result's first use action, which the use key runs: the
@@ -454,7 +470,7 @@ end
 function SearchSession:OpenActionList()
   local entry = self.results[self.selection]
   if entry and ns.HasActions(entry) then
-    self.actionList = { entry = entry, actions = ns.EntryActions(entry), selection = 1 }
+    self.actionList = { entry = entry, actions = ListActions(self, entry), selection = 1 }
   end
 end
 
@@ -466,10 +482,18 @@ end
 
 -- Runs the action list's selected action and closes the search bar, as the
 -- main action does. A blocked action does nothing, and the search bar stays
--- open, so the player sees the sign.
+-- open, so the player sees the sign. The forget action is not a pick: it
+-- closes only the action list, and the thing leaves the results, which
+-- keep the selected position.
 function SearchSession:RunListAction()
   local list = self.actionList
   local action = list.actions[list.selection]
+  if action == FORGET then
+    ns.ForgetPicks(list.entry)
+    self.actionList = nil
+    self:Search(true)
+    return Changed(self)
+  end
   if Blocked(action) then
     return Changed(self)
   end

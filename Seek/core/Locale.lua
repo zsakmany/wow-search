@@ -38,6 +38,7 @@ ns.L = {
   ACTION_OPEN_IN_OPTIONS_WINDOW = "Open in the Options window",
   ACTION_USE = "Use",
   ACTION_CAST = "Cast",
+  ACTION_FORGET = "Remove from recent",
 
   -- The sign on a use action in the action list while the player is in
   -- combat, when WoW does not let Seek run it, and on the selected result

@@ -1,9 +1,10 @@
 -- Seek's bag source: one entry per distinct item in the character's bags
 -- (the backpack and the equipped bags, not the bank), with the item's
--- tooltip text as its long text. It registers through the public `Seek`
--- table, like any other addon's source. Each entry has the `inBags` fact,
--- which gives it its actions. The core also keeps these items as the
--- character's bags, for the player's other characters
+-- tooltip text as its long text, and its item count: the stacks of all of
+-- the slots that hold the item, added up. It registers through the public
+-- `Seek` table, like any other addon's source. Each entry has the `inBags`
+-- fact, which gives it its actions. The core also keeps these items, with
+-- their counts, as the character's bags, for the player's other characters
 -- (core/CharacterBags.lua).
 local _, ns = ...
 
@@ -51,26 +52,33 @@ end
 -- game has loaded it. (Many items can load in one frame; Seek reads the bags
 -- once for all of their notices.)
 local function GetEntries()
-  local entries, seen = {}, {}
+  local entries, seen, byItemID = {}, {}, {}
   local owner = ns.CurrentCharacter()
   for bag = FIRST_BAG, LAST_BAG do
     for slot = 1, C_Container.GetContainerNumSlots(bag) do
       local info = C_Container.GetContainerItemInfo(bag, slot)
       local itemID = info and info.itemID
-      if itemID and not seen[itemID] then
+      local entry = itemID and byItemID[itemID]
+      if entry then
+        -- Another stack of an item that already has its entry.
+        entry.count = entry.count + info.stackCount
+      elseif itemID and not seen[itemID] then
         seen[itemID] = true
         local item = Item:CreateFromItemID(itemID)
         if item:IsItemDataCached() then
-          entries[#entries + 1] = {
+          entry = {
             name = item:GetItemName(),
             icon = info.iconFileID,
             kind = "item",
             gameID = itemID,
             owner = owner,
             longText = TooltipText(bag, slot),
+            count = info.stackCount,
             inBags = true,
             usable = Usable(itemID),
           }
+          entries[#entries + 1] = entry
+          byItemID[itemID] = entry
         elseif not loading[itemID] then
           loading[itemID] = true
           item:ContinueOnItemLoad(function()

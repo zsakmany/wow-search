@@ -31,6 +31,9 @@ ns.L = {
   -- page that holds it, such as "Auto Loot · Controls"
   NAME_WITH_PAGE = "%s · %s",
 
+  -- The item count on a result's row, after the name, such as "×57"
+  ITEM_COUNT = "×%d",
+
   -- The actions' names, as the action list shows them
   ACTION_SHOW_IN_BAG = "Show in bag",
   ACTION_SHOW_ON_MAP = "Show on map",

@@ -25,9 +25,14 @@
 --           "remove focus" in place of "focus" (Kinds.lua)
 --   page    (game options) the name of the game option page that holds the
 --           game option, such as "Controls"; nil for a game option page
+--   count   (items) the item count: how many of the item the owner has, all
+--           stacks together, a whole number of at least 1. The result's row
+--           shows it after the name when it is more than 1; the query never
+--           matches it.
 -- Seek rejects (leaves out) an entry with no name or an unknown kind, and
--- leaves out long text and a page that are not strings. Any `inBags`,
--- `usable`, `tracked`, or `focused` other than true counts as false.
+-- leaves out long text and a page that are not strings, and a count that is
+-- not a whole number of at least 1. Any `inBags`, `usable`, `tracked`, or
+-- `focused` other than true counts as false.
 --
 -- When its data changes, a source calls NotifyChanged(id). Seek then reads
 -- it again and replaces all of its old entries.
@@ -73,6 +78,12 @@ local started = false
 -- registered (yet) in this session.
 local saved = { version = SAVED_VERSION, sources = {} }
 
+-- Whether `count` is an item count that Seek keeps: a whole number of at
+-- least 1.
+local function IsCount(count)
+  return type(count) == "number" and count >= 1 and count == math.floor(count)
+end
+
 -- Copies an entry from a source, or returns nil to reject it. Seek keeps
 -- its own copy, so a source can change or reuse its tables later. The copy
 -- has only what the saved copy needs.
@@ -93,6 +104,7 @@ local function Accept(entry)
     tracked = entry.tracked == true or nil,
     focused = entry.focused == true or nil,
     page = type(entry.page) == "string" and entry.page or nil,
+    count = IsCount(entry.count) and entry.count or nil,
   }
 end
 
@@ -110,6 +122,7 @@ local function Prepare(copy)
     tracked = copy.tracked,
     focused = copy.focused,
     page = copy.page,
+    count = copy.count,
     match = ns.PrepareName(copy.name),
     longTextMatch = copy.longText and ns.PrepareLongText(copy.longText),
     sortName = copy.name:lower(),

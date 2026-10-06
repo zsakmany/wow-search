@@ -30,7 +30,9 @@ local SAVED_VERSION = 1
 
 -- Each character's items, by owner: lists of tables with the fields of an
 -- entry that do not depend on the owner (name, kind, icon, gameID,
--- longText). Saved as the field `characters` of the saved bags.
+-- longText, count: the item count when Seek last read the character's
+-- bags). Saved as the field `characters` of the saved bags. Bags saved
+-- before item counts have none, until the character logs in again.
 local bagsByOwner = {}
 
 -- Takes each character's bags from the account-wide saved data (see
@@ -59,7 +61,10 @@ function ns.KeepCharacterBags(id, copies)
   end
   local items = {}
   for i, copy in ipairs(copies) do
-    items[i] = { name = copy.name, kind = copy.kind, icon = copy.icon, gameID = copy.gameID, longText = copy.longText }
+    items[i] = {
+      name = copy.name, kind = copy.kind, icon = copy.icon, gameID = copy.gameID, longText = copy.longText,
+      count = copy.count,
+    }
   end
   bagsByOwner[owner] = items
   ns.SaveAccount({ bags = { version = SAVED_VERSION, characters = bagsByOwner } })
@@ -89,6 +94,7 @@ local function GetEntries()
           icon = item.icon,
           gameID = item.gameID,
           longText = item.longText,
+          count = item.count,
           owner = owner,
         }
       end

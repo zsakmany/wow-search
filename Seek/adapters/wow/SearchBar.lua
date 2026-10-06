@@ -11,6 +11,10 @@ local L = ns.L
 
 local ROW_HEIGHT = 24
 local ROW_INSET = 10 -- between the window's left and right edges and the result rows
+local ROW_NAME_LEFT = 30 -- between a result row's left edge and the name: the icon's inset, the icon, and a gap
+local ROW_KIND_RIGHT = 6 -- between the kind text and a result row's right edge
+local ROW_KIND_GAP = 8 -- between the name, or the item count after it, and the kind text
+local ROW_COUNT_GAP = 4 -- between the name and the item count
 local TOP_HEIGHT = 64 -- the title bar and the text box
 local QUESTION_MARK_ICON = 134400 -- for an entry without an icon
 local LIST_ROW_HEIGHT = 20
@@ -19,7 +23,7 @@ local LIST_MIN_WIDTH = 140
 local LIST_LABEL_GAP = 12 -- between an action's label and its blocked sign or the use key
 local GOLD = "|cffffd100" -- the matched letters of a name: the color of quest titles
 local TOOLTIP_GAP = 4 -- between the window's edge and the tooltip
-local FADED_ALPHA = 0.5 -- the icon, name, and kind of a faded result
+local FADED_ALPHA = 0.5 -- the icon, name, item count, and kind of a faded result
 
 -- The use key: Cmd+Enter on a Mac, Ctrl+Enter on Windows, each also with
 -- the number pad's Enter (see "Keys for use actions" below). For this
@@ -92,8 +96,9 @@ local function ColoredName(name, matched)
   return gold and text .. "|r" or text
 end
 
--- The result rows: icon, name, and kind. The selected row is lit. The
--- matched letters of each name are gold, also on the selected row. A faded
+-- The result rows: icon, name, item count (dim, after the name, only when
+-- the core sends one), and kind. The selected row is lit. The matched
+-- letters of each name are gold, also on the selected row. A faded
 -- result (no actions, such as an item in another character's bags) has a
 -- gray icon and dim text; its row is lit as brightly when selected. After
 -- combat blocked the use key on the selected row, the row shows the
@@ -120,18 +125,36 @@ local function Row(i)
   row.icon:SetPoint("LEFT", row, "LEFT", 4, 0)
 
   row.kind = row:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
-  row.kind:SetPoint("RIGHT", row, "RIGHT", -6, 0)
+  row.kind:SetPoint("RIGHT", row, "RIGHT", -ROW_KIND_RIGHT, 0)
   row.kind:SetJustifyH("RIGHT")
 
+  -- The name has no right anchor: FitName sets its width, so that the item
+  -- count can follow the name's last letter.
   row.name = row:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-  row.name:SetPoint("LEFT", row.icon, "RIGHT", 6, 0)
-  row.name:SetPoint("RIGHT", row.kind, "LEFT", -8, 0)
+  row.name:SetPoint("LEFT", row, "LEFT", ROW_NAME_LEFT, 0)
   row.name:SetJustifyH("LEFT")
   row.name:SetWordWrap(false)
+
+  row.count = row:CreateFontString(nil, "ARTWORK", "GameFontDisable")
+  row.count:SetPoint("LEFT", row.name, "RIGHT", ROW_COUNT_GAP, 0)
 
   row:Hide()
   rows[i] = row
   return row
+end
+
+-- Makes a row's name as wide as its text, but cuts it short where it would
+-- run into the item count or the kind text, so the count always shows
+-- right after the name, also after a long name. Call it after the name,
+-- the count, and the kind text are set.
+local function FitName(row)
+  local room = frame:GetWidth() - 2 * ROW_INSET - ROW_NAME_LEFT - ROW_KIND_GAP - row.kind:GetStringWidth()
+    - ROW_KIND_RIGHT
+  if row.count:IsShown() then
+    room = room - ROW_COUNT_GAP - row.count:GetStringWidth()
+  end
+  -- A width of 0 would let the name grow to its text again.
+  row.name:SetWidth(math.max(1, math.min(row.name:GetUnboundedStringWidth(), room)))
 end
 
 -- The action list: a small tooltip-style box to the right of the selected
@@ -321,10 +344,14 @@ local function RenderContent(view)
         row.kind:SetFontObject("GameFontDisableSmall")
         row.kind:SetText(result.kindLabel)
       end
+      row.count:SetText(result.countText or "")
+      row.count:SetShown(result.countText ~= nil)
+      FitName(row)
       row.icon:SetDesaturated(result.faded)
       local alpha = result.faded and FADED_ALPHA or 1
       row.icon:SetAlpha(alpha)
       row.name:SetAlpha(alpha)
+      row.count:SetAlpha(alpha)
       row.kind:SetAlpha(alpha)
       row.selection:SetShown(result.selected)
       row:Show()

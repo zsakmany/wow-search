@@ -299,6 +299,15 @@ local function RowName(entry)
   return entry.name
 end
 
+-- The item count as a result's row shows it after the name ("×57"), or nil
+-- for a count of 1 or no count.
+local function CountText(entry)
+  if entry.count and entry.count > 1 then
+    return L.ITEM_COUNT:format(entry.count)
+  end
+  return nil
+end
+
 -- The text in place of the results when there are none, or nil: "no
 -- results" for a query, or, for a query that is only a kind's prefix, what
 -- to type. An empty query has the hint instead.
@@ -332,9 +341,11 @@ end
 --              matched the query, in order, counted in whole letters (nil
 --              for a long text match and for the recently picked things;
 --              the window must not change this list; the search bar shows
---              these letters in gold), and blocked (true on the selected row
+--              these letters in gold), blocked (true on the selected row
 --              after combat blocked the use key there: the row shows the
---              "blocked in combat" sign)
+--              "blocked in combat" sign), and countText (the item count as
+--              the row shows it after the name, such as "×57", see
+--              CountText; nil for a count of 1 or no count)
 --   scroll     how many results are above the first visible row
 --   total      how many results there are in all
 --   actionList the open action list, else nil. It belongs to the selected
@@ -366,6 +377,7 @@ function SearchSession:View()
       selected = i == self.selection,
       blocked = i == self.selection and SameThing(entry, self.useKeyBlockedEntry),
       matchedLetters = self.matchedLetters[entry],
+      countText = CountText(entry),
     }
   end
   local actionList

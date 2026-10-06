@@ -36,6 +36,9 @@ files["Seek/adapters/wow/"] = {
     -- The function that the addon button at the minimap calls (the TOC's
     -- AddonCompartmentFunc)
     "Seek_OnAddonCompartmentClick",
+    -- The minimap icon's place on the minimap edge, account-wide (the TOC's
+    -- saved variable)
+    "SeekMinimapIcon",
   },
 }
 

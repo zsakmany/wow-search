@@ -62,6 +62,10 @@ ns.L = {
     .. "on this account, faded, with the character's name. A character's bags show after it has logged in "
     .. "once with Seek.",
 
+  -- The hover text of the minimap icon, under its title (NAME)
+  HOVER_TEXT_LEFT_CLICK = "Left click: open or close the search bar",
+  HOVER_TEXT_RIGHT_CLICK = "Right click: settings",
+
   -- In chat, once, after Seek has set its suggested key; %s is the key
   SUGGESTED_KEY_SET = "Seek: press %s to open the search bar. You can change the key in the Keybindings menu.",
 }

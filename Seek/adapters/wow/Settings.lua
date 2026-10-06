@@ -26,7 +26,7 @@ local page -- Seek's page in the Options window
 
 -- Blizzard's setting objects for the settings that the character switch
 -- changes: the visible results slider, the tooltip side dropdown, and the
--- other characters' bags checkbox.
+-- other characters' bags and minimap icon checkboxes.
 local pageSettings = {}
 
 ns.SetSettings({
@@ -78,7 +78,8 @@ local function StoreSetting(variable, name, label)
 end
 
 -- The page: the character switch, the visible results slider, the tooltip
--- side dropdown, and the other characters' bags checkbox.
+-- side dropdown, and the other characters' bags and minimap icon
+-- checkboxes.
 local function RegisterPage()
   page = Settings.RegisterVerticalLayoutCategory(L.NAME)
 
@@ -114,11 +115,15 @@ local function RegisterPage()
     L.SETTING_OTHER_CHARACTERS_BAGS)
   Settings.CreateCheckbox(page, otherCharactersBagsSetting, L.SETTING_OTHER_CHARACTERS_BAGS_TOOLTIP)
 
+  local minimapIconSetting = StoreSetting("SEEK_MINIMAP_ICON", "minimapIcon", L.SETTING_MINIMAP_ICON)
+  Settings.CreateCheckbox(page, minimapIconSetting, L.SETTING_MINIMAP_ICON_TOOLTIP)
+
   Settings.RegisterAddOnCategory(page)
 end
 
 -- Opens the Options window at Seek's page (/seek settings, a right click on
--- the Seek entry in the addon button at the minimap).
+-- the Seek entry in the addon button at the minimap or on the minimap
+-- icon).
 function ns.OpenSettings()
   if page then
     Settings.OpenToCategory(page:GetID())

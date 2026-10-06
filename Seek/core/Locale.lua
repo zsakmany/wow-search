@@ -61,6 +61,10 @@ ns.L = {
   SETTING_OTHER_CHARACTERS_BAGS_TOOLTIP = "Search also finds the items in the bags of your other characters "
     .. "on this account, faded, with the character's name. A character's bags show after it has logged in "
     .. "once with Seek.",
+  SETTING_MINIMAP_ICON = "Show minimap icon",
+  SETTING_MINIMAP_ICON_TOOLTIP = "Shows Seek's magnifying glass at the edge of the minimap. A left click "
+    .. "on it opens or closes the search bar, and a right click opens these settings. Drag it to move it "
+    .. "along the edge.",
 
   -- The hover text of the minimap icon, under its title (NAME)
   HOVER_TEXT_LEFT_CLICK = "Left click: open or close the search bar",

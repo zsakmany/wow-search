@@ -52,6 +52,10 @@ _Avoid_: Cache, database, snapshot
 What sort of game thing an entry is, such as item, spell, or quest. Show actions and use actions belong to the kind, whatever the entry's source; an entry gets only those of its kind's actions that it can do (only a usable item gets the use action).
 _Avoid_: Type, category
 
+**Cooldown**:
+The time until the character can use a thing again, such as a Hearthstone or a spell, after using it. A result with a use action shows its cooldown only while it runs; a ready thing shows nothing. A cooldown never changes a result's look or rank, and the game, not Seek, refuses a use action while it runs.
+_Avoid_: Timer, recharge, lockout
+
 **Owner**:
 The character that has an entry's thing, named as "Name-Realm". The owner can be another character of the player, for example for an item in another character's bags.
 _Avoid_: Character (alone), alt, toon

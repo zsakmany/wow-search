@@ -77,11 +77,11 @@ Something the player can run on a result. Each action is a show action, a use ac
 _Avoid_: Command, handler, activation
 
 **Show action**:
-An action that opens or highlights the thing, such as opening the quest log at a quest. Combat never blocks it.
+An action that opens or highlights the thing, such as showing a quest on the map. It changes nothing in the game. Combat never blocks it.
 _Avoid_: View, reveal, open
 
 **Use action**:
-An action that makes the character do the thing, such as casting the spell or using the item. Combat can block it.
+An action that changes something in the game: the character does the thing, such as casting the spell or using the item, or the thing changes, such as a quest's focus or tracking. Combat can block it.
 _Avoid_: Do, activate, execute, cast
 
 **Forget action**:
@@ -95,6 +95,14 @@ _Avoid_: Default action, primary action
 **Use key**:
 The key that runs the selected result's first use action without opening the action list: Cmd+Enter on a Mac, Ctrl+Enter on Windows. Combat blocks it, like every use action.
 _Avoid_: Shortcut, hotkey, quick use
+
+**Focus**:
+The one quest that the game points the player to, with the arrow on the minimap. The player can focus a quest, which also tracks it, or remove the focus.
+_Avoid_: Super track, waypoint, highlight
+
+**Tracked quest**:
+A quest that the game shows in its objective tracker. The player can track and untrack a quest.
+_Avoid_: Watched quest, followed quest
 
 **Minimap icon**:
 Seek's own icon at the edge of the minimap, which opens the search bar. Not the addon button.

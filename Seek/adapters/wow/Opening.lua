@@ -29,7 +29,7 @@ end
 -- A click on the Seek entry in the addon button or on the minimap icon,
 -- with the mouse button: a right click opens the settings page, any other
 -- click toggles the search bar.
-function ns.ClickEntryOrIcon(button)
+function ns.ClickAddonButtonOrMinimapIcon(button)
   if button == "RightButton" then
     ns.OpenSettings()
   else
@@ -41,5 +41,5 @@ end
 -- compartment), through the TOC's AddonCompartmentFunc, with the addon's
 -- name and the mouse button. The game finds it by its global name.
 function Seek_OnAddonCompartmentClick(_, button)
-  ns.ClickEntryOrIcon(button)
+  ns.ClickAddonButtonOrMinimapIcon(button)
 end

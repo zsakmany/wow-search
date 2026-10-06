@@ -39,13 +39,15 @@ end
 
 local icon, iconCoords = Picture()
 
--- The icon's data for LibDBIcon (a LibDataBroker launcher).
-local launcher = LibStub("LibDataBroker-1.1"):NewDataObject(addonName, {
+-- The icon's data for LibDBIcon: a LibDataBroker data object. Its type
+-- "launcher" is LibDataBroker's word for a data object that only takes
+-- clicks.
+local iconData = LibStub("LibDataBroker-1.1"):NewDataObject(addonName, {
   type = "launcher",
   icon = icon,
   iconCoords = iconCoords,
   OnClick = function(_, button)
-    ns.ClickEntryOrIcon(button)
+    ns.ClickAddonButtonOrMinimapIcon(button)
   end,
   -- LibDBIcon shows the hover text in its own GameTooltip frame.
   OnTooltipShow = function(frame)
@@ -57,10 +59,16 @@ local launcher = LibStub("LibDataBroker-1.1"):NewDataObject(addonName, {
 
 local registered = false
 
--- Shows or hides the icon as the setting says.
+-- Shows or hides the icon as the setting says. Before the player logs in,
+-- this only writes LibDBIcon's `hide` field: LibDBIcon places the icon and
+-- shows or hides it by that field at login, once other addons have set
+-- the minimap's shape.
 local function Update()
   local shown = ns.Setting("minimapIcon")
   SeekMinimapIcon.hide = not shown
+  if not IsLoggedIn() then
+    return
+  end
   if shown then
     LibDBIcon:Show(addonName)
   else
@@ -87,7 +95,7 @@ events:SetScript("OnEvent", function(self, _, name)
     if type(SeekMinimapIcon) ~= "table" then
       SeekMinimapIcon = {}
     end
-    LibDBIcon:Register(addonName, launcher, SeekMinimapIcon)
+    LibDBIcon:Register(addonName, iconData, SeekMinimapIcon)
     registered = true
     Update()
   end

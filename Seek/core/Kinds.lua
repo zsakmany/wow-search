@@ -3,8 +3,12 @@
 -- the kind, not to the source, so an entry gets its kind's actions (those
 -- that it can do, see below), whatever source gave it.
 --
--- Each kind has a label from the locale table and a list of actions. Each
--- action has:
+-- Each kind has a label from the locale table and a list of actions. A
+-- kind can also have a prefix (see GLOSSARY.md): then its entries are found
+-- only when the query starts with the prefix, and then no other kind's
+-- entries are (SearchSession.lua). Its prefixHint is the text that the
+-- search bar shows when the query is only the prefix and nothing of the
+-- kind was picked yet. Each action has:
 --   id     a stable name; the action adapter runs the action by this id
 --   label  the action's name, from the locale table
 --   type   "show" (opens or highlights the thing; combat never blocks it)
@@ -55,6 +59,8 @@ ns.kinds = {
   -- then the action does nothing (issue #28).
   gameOption = {
     label = L.KIND_GAME_OPTION,
+    prefix = ">",
+    prefixHint = L.PREFIX_HINT_GAME_OPTION,
     actions = {
       { id = "openInOptionsWindow", label = L.ACTION_OPEN_IN_OPTIONS_WINDOW, type = "show" },
     },

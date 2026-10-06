@@ -140,9 +140,36 @@ local function SameThing(a, b)
     and a.owner == b.owner
 end
 
+-- The kind whose prefix the query starts with, and the rest of the query
+-- without the prefix and the spaces after it. With no prefix: nil, and the
+-- whole query.
+local function SplitPrefix(query)
+  for name, kind in pairs(ns.kinds) do
+    if kind.prefix and query:sub(1, #kind.prefix) == kind.prefix then
+      return name, query:sub(#kind.prefix + 1):match("^%s*(.*)$")
+    end
+  end
+  return nil, query
+end
+
+-- The entries that a query with the prefix of `prefixKind` can find: only
+-- that kind's, or with no prefix, those of every kind that has no prefix.
+local function EntriesFor(prefixKind)
+  local entries = {}
+  for _, entry in ipairs(ns.Entries()) do
+    if prefixKind and entry.kind == prefixKind or not prefixKind and not ns.kinds[entry.kind].prefix then
+      entries[#entries + 1] = entry
+    end
+  end
+  return entries
+end
+
 -- Matches every entry against the query, by name or else by long text, and
 -- ranks the results. A name match also keeps the name's matched letters.
 -- With an empty query, the results are the recently picked things instead.
+-- A query that starts with a kind's prefix searches only that kind's
+-- entries, with the rest of the query; with only the prefix, the results
+-- are that kind's recently picked things.
 -- The best result is selected, unless `keepSelection` keeps the selected
 -- position (when a source's entries change under the player's eyes).
 --
@@ -152,14 +179,17 @@ end
 -- that thing's new entry.
 function SearchSession:Search(keepSelection)
   local results, matchedLetters = {}, {}
-  if self.query == "" then
-    results = ns.RecentlyPicked(ns.Entries(), VisibleRows())
+  local prefixKind, typed = SplitPrefix(self.query)
+  local entries = EntriesFor(prefixKind)
+  self.prefixKind, self.typed = prefixKind, typed
+  if typed == "" then
+    results = ns.RecentlyPicked(entries, VisibleRows())
   else
     local matches = {}
-    local query = ns.PrepareQuery(self.query)
-    local boost = ns.PickBoosts(self.query)
+    local query = ns.PrepareQuery(typed)
+    local boost = ns.PickBoosts(typed)
     local current = ns.CurrentCharacter()
-    for _, entry in ipairs(ns.Entries()) do
+    for _, entry in ipairs(entries) do
       local otherOwner = IsOtherOwner(entry, current)
       local score, letters = ns.Score(query, entry.match)
       if score then
@@ -254,13 +284,27 @@ local function RowName(entry)
   return entry.name
 end
 
+-- The text in place of the results when there are none, or nil: "no
+-- results" for a query, or, for a query that is only a kind's prefix, what
+-- to type. An empty query has the hint instead.
+local function NoResultsText(session)
+  if session.query == "" or #session.results > 0 then
+    return nil
+  end
+  if session.prefixKind and session.typed == "" then
+    return ns.kinds[session.prefixKind].prefixHint
+  end
+  return L.NO_RESULTS
+end
+
 -- The view state for the search bar. A new table on each call, so the
 -- window can keep it without seeing later changes:
 --   open       whether the search bar is open
 --   query      the query
 --   hint       the hint text while the query is empty and there are no
 --              results (no recently picked things), else nil
---   noResults  the "no results" text when the query matches nothing, else nil
+--   noResults  the text in place of the results when there are none, for
+--              a query that is not empty, else nil (see NoResultsText)
 --   results    the visible results (at most as many as the visible
 --              results setting says), top to bottom; each has
 --              name (with the page for a game option, see RowName),
@@ -328,7 +372,7 @@ function SearchSession:View()
     open = self.isOpen,
     query = self.query,
     hint = self.query == "" and #self.results == 0 and L.HINT or nil,
-    noResults = self.query ~= "" and #self.results == 0 and L.NO_RESULTS or nil,
+    noResults = NoResultsText(self),
     results = rows,
     scroll = self.scroll,
     total = #self.results,
@@ -370,7 +414,8 @@ end
 local function RunAndPick(session, action, entry)
   session:Close()
   ns.RunAction(action, entry)
-  ns.RecordPick(entry, session.query)
+  -- The prefix is not part of what the player typed for the thing.
+  ns.RecordPick(entry, session.typed)
   return session:View()
 end
 

@@ -12,6 +12,10 @@ _Avoid_: Launcher, palette, spotlight, search window
 The text the player types into the search bar.
 _Avoid_: Search term, input, filter
 
+**Prefix**:
+A character at the very start of the query that makes the search find only one kind: ">" finds only game options. That kind's entries are never found without it.
+_Avoid_: Mode, scope, filter, command mode
+
 **Source**:
 One kind of searchable thing, such as bag items, spells, or quests.
 _Avoid_: Provider, category, module, sub-plugin

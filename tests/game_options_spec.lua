@@ -52,7 +52,7 @@ describe("a game option", function()
 
   it("opens in the Options window on Enter, at its page, and the search bar closes", function()
     Given({ GameOption("Auto Loot", "Controls") })
-    session:SetQuery("auto loot")
+    session:SetQuery(">auto loot")
     local view = session:PressKey("ENTER")
     assert.are.same({
       { action = "openInOptionsWindow", name = "Auto Loot", page = "Controls", gameID = "Controls\nAuto Loot" },
@@ -62,14 +62,14 @@ describe("a game option", function()
 
   it("shows its name and its game option page on its row, with the kind", function()
     Given({ GameOption("Auto Loot", "Controls") })
-    local view = session:SetQuery("auto loot")
+    local view = session:SetQuery(">auto loot")
     assert.are.equal("Auto Loot · Controls", view.results[1].name)
     assert.are.equal("Game option", view.results[1].kindLabel)
   end)
 
   it("has one action, which the action list shows", function()
     Given({ GameOption("Auto Loot", "Controls") })
-    session:SetQuery("auto loot")
+    session:SetQuery(">auto loot")
     local view = session:PressKey("TAB")
     assert.are.equal(1, #view.actionList.rows)
     assert.are.equal("Open in the Options window", view.actionList.rows[1].label)
@@ -78,7 +78,7 @@ describe("a game option", function()
 
   it("can be a game option page, which shows only its name and opens on Enter", function()
     Given({ GameOptionPage("Audio"), GameOption("Master Volume", "Audio") })
-    local view = session:SetQuery("audio")
+    local view = session:SetQuery(">audio")
     assert.are.same({ "Audio" }, Names(view))
     assert.are.equal("Game option", view.results[1].kindLabel)
     session:PressKey("ENTER")
@@ -87,12 +87,12 @@ describe("a game option", function()
 
   it("is found by its name, also with letters left out", function()
     Given({ GameOption("Auto Loot", "Controls"), GameOption("Interact on Left Click", "Controls") })
-    assert.are.same({ "Auto Loot · Controls" }, Names(session:SetQuery("autlt")))
+    assert.are.same({ "Auto Loot · Controls" }, Names(session:SetQuery(">autlt")))
   end)
 
   it("is not found by its game option page's name", function()
     Given({ GameOption("Auto Loot", "Controls") })
-    assert.are.same({}, Names(session:SetQuery("controls")))
+    assert.are.same({}, Names(session:SetQuery(">controls")))
   end)
 
   it("is found by the start of a word in its long text, but not by letters inside a word", function()
@@ -100,9 +100,9 @@ describe("a game option", function()
       GameOption("Auto Loot", "Controls", "Automatically loot all items when you open a corpse."),
       GameOption("Sticky Targeting", "Controls", "Keeps your target when you click empty ground."),
     })
-    assert.are.same({ "Auto Loot · Controls" }, Names(session:SetQuery("corpse")))
-    assert.are.same({}, Names(session:SetQuery("orpse")))
-    assert.are.same({}, Names(session:SetQuery("crps")))
+    assert.are.same({ "Auto Loot · Controls" }, Names(session:SetQuery(">corpse")))
+    assert.are.same({}, Names(session:SetQuery(">orpse")))
+    assert.are.same({}, Names(session:SetQuery(">crps")))
   end)
 
   it("ranks a name match above a long text match", function()
@@ -112,7 +112,73 @@ describe("a game option", function()
       GameOption("Auto Loot", "Controls", "Loots your target's corpse at once."),
       GameOption("Sticky Targeting", "Controls"),
     })
-    assert.are.same({ "Sticky Targeting · Controls", "Auto Loot · Controls" }, Names(session:SetQuery("target")))
+    assert.are.same({ "Sticky Targeting · Controls", "Auto Loot · Controls" }, Names(session:SetQuery(">target")))
+  end)
+end)
+
+describe("the game option prefix", function()
+  local game, session
+
+  -- An item in the current character's bags, which is not a game option.
+  local function Item(name, itemID)
+    return { name = name, kind = "item", gameID = itemID, owner = "Tester", inBags = true }
+  end
+
+  before_each(function()
+    game = FakeGame.Started()
+    game.ns.SetActionAdapter({ Run = function() end })
+    game.Seek.RegisterSource({
+      id = "Test.GameOptions",
+      GetEntries = function()
+        return { GameOption("Auto Loot", "Controls"), GameOption("Sticky Targeting", "Controls") }
+      end,
+    })
+    game.Seek.RegisterSource({
+      id = "Test.Bags",
+      GetEntries = function()
+        return { Item("Autumn Leaf", 1) }
+      end,
+    })
+    session = game.ns.NewSearchSession()
+    session:Open()
+  end)
+
+  it("is needed to find a game option", function()
+    assert.are.same({ "Autumn Leaf" }, Names(session:SetQuery("au")))
+  end)
+
+  it("finds only game options", function()
+    assert.are.same({ "Auto Loot · Controls" }, Names(session:SetQuery(">au")))
+  end)
+
+  it("may be followed by spaces", function()
+    assert.are.same({ "Auto Loot · Controls" }, Names(session:SetQuery(">  auto loot")))
+  end)
+
+  it("counts only as the query's first letter", function()
+    assert.are.same({}, Names(session:SetQuery(" >auto")))
+    assert.are.same({}, Names(session:SetQuery("auto>")))
+  end)
+
+  -- The hint shows inside the text box, where the ">" is now, so this text
+  -- takes the place of "No results" instead.
+  it("alone says what to type, before any game option is picked", function()
+    local view = session:SetQuery(">")
+    assert.are.same({}, Names(view))
+    assert.is_nil(view.hint)
+    assert.are.equal("Type the name of a game option", view.noResults)
+  end)
+
+  it("alone shows the recently picked game options, and the empty query does not", function()
+    session:SetQuery("autumn")
+    session:PressKey("ENTER")
+    session:Open()
+    session:SetQuery(">sticky")
+    session:PressKey("ENTER")
+    session:Open()
+    assert.are.same({ "Sticky Targeting · Controls" }, Names(session:SetQuery(">")))
+    assert.are.same({ "Sticky Targeting · Controls" }, Names(session:SetQuery(">  ")))
+    assert.are.same({ "Autumn Leaf" }, Names(session:SetQuery("")))
   end)
 end)
 
@@ -140,8 +206,8 @@ describe("a game option after a reload", function()
     })
     local session = after.ns.NewSearchSession()
     session:Open()
-    assert.are.same({ "Auto Loot · Controls" }, Names(session:SetQuery("auto loot")))
-    assert.are.same({ "Auto Loot · Controls" }, Names(session:SetQuery("corpse")))
+    assert.are.same({ "Auto Loot · Controls" }, Names(session:SetQuery(">auto loot")))
+    assert.are.same({ "Auto Loot · Controls" }, Names(session:SetQuery(">corpse")))
     assert.are.equal(0, reads)
   end)
 end)

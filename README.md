@@ -1,6 +1,6 @@
 # Seek
 
-Seek is a World of Warcraft addon that opens a search bar on a hotkey and finds the player's own things (bag items, spells, quests) and the game options in the game's Options window as they type; Enter on a game option opens the Options window at it. It also finds the items in the bags of the player's other characters on the account, as faded results: each character shows after it has logged in once with Seek, and the setting "Show other characters' bags" turns this off. Domain words: [GLOSSARY.md](GLOSSARY.md). Decisions: [docs/adr/](docs/adr/).
+Seek is a World of Warcraft addon that opens a search bar on a hotkey and finds the player's own things (bag items, spells, quests) and, when the query starts with `>`, the game options in the game's Options window as they type; Enter on a game option opens the Options window at it. It also finds the items in the bags of the player's other characters on the account, as faded results: each character shows after it has logged in once with Seek, and the setting "Show other characters' bags" turns this off. Domain words: [GLOSSARY.md](GLOSSARY.md). Decisions: [docs/adr/](docs/adr/).
 
 ## Tests and checks
 

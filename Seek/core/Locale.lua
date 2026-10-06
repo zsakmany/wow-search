@@ -12,6 +12,10 @@ ns.L = {
   -- The search bar's text when the query matches nothing
   NO_RESULTS = "No results",
 
+  -- The search bar's text in place of "No results" when the query is only
+  -- the game option prefix (">") and no game option was picked yet
+  PREFIX_HINT_GAME_OPTION = "Type the name of a game option",
+
   -- The kind shown on each result row
   KIND_ITEM = "Item",
   KIND_SPELL = "Spell",

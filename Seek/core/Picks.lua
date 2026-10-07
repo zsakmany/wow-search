@@ -1,6 +1,8 @@
 -- Picks: each time the player runs an action on a result, Seek remembers
 -- that thing, so that it ranks higher later (see GLOSSARY.md). The forget
--- action is not a pick: it removes all picks of a thing. A pick is
+-- action is not a pick: it removes all picks of a thing. The button
+-- "Forget all picks" on Seek's settings page removes all picks of this
+-- character, of every thing; it is not a pick either. A pick is
 -- the thing's kind and game ID (not its source: the same item from the
 -- bags or the bank is one thing), the query that the player had typed, and
 -- the time (from the Clock port). An entry without a game ID is never
@@ -148,6 +150,13 @@ function ns.ForgetPicks(entry)
     end
   end
   picks = kept
+  SavePicks()
+end
+
+-- Removes all picks of this character, of every thing, and saves the
+-- picks: the button "Forget all picks" on Seek's settings page.
+function ns.ForgetAllPicks()
+  picks = {}
   SavePicks()
 end
 

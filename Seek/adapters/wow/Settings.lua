@@ -30,10 +30,16 @@
 -- shows all characters again, the page also has a proxy setting with no
 -- control for them (HiddenCharactersSetting).
 --
+-- The button "Forget all picks", last on the page, with its explanation
+-- under it, forgets all picks of this character (see GLOSSARY.md;
+-- core/Picks.lua), after Seek's confirmation window
+-- (ConfirmationWindow.lua) asks first. It is not a setting: the page's
+-- Defaults button does not touch picks.
+--
 -- Taint: the page is built only with the Settings API's own calls, and
--- Seek never writes into the Options window's frames (issue #25). The
+-- Seek never writes into the Options window's frames (issue #25). Each
 -- button is Blizzard's button row (CreateSettingsButtonInitializer), with
--- Seek's click function; the explanation is a row of Seek's own template
+-- Seek's click function; each explanation is a row of Seek's own template
 -- (SettingsText.xml), which the page creates and fills through the row's
 -- initializer. The page's list calls each row's initializer only through
 -- securecallfunction (Blizzard_SettingsList.lua), so Seek's code there does
@@ -51,7 +57,8 @@
 --
 -- Combat: hiding or showing a character saves at once, but its items leave
 -- or come back only when combat ends, when Seek reads the other
--- characters' bags again (ADR 0002).
+-- characters' bags again (ADR 0002). Forgetting all picks works in combat
+-- too: picks are not source data.
 local addonName, ns = ...
 
 local L = ns.L
@@ -145,20 +152,18 @@ local function OtherCharactersMenu(_, root)
   end
 end
 
--- The "Other characters…" button and its explanation under it (see the
--- top of this file). The button has no name, so it starts where the other
--- rows' names start, and Seek's game option source leaves it out (rows
--- with no name). Its text is in the Options window's search
--- (addSearchTags).
-local function AddOtherCharacters(layout)
-  local button = CreateSettingsButtonInitializer("", L.SETTING_OTHER_CHARACTERS, function(self)
-    MenuUtil.CreateContextMenu(self, OtherCharactersMenu)
-  end, nil, true)
-  layout:AddInitializer(button)
+-- A button with `text` that runs `click` (with the button), and the
+-- explanation `explanationText` under it (see the top of this file). The
+-- button has no name, so it starts where the other rows' names start, and
+-- Seek's game option source leaves it out (rows with no name); it leaves
+-- out the explanation too (no setting and no action). The button's text
+-- is in the Options window's search (addSearchTags).
+local function AddButton(layout, text, explanationText, click)
+  layout:AddInitializer(CreateSettingsButtonInitializer("", text, click, nil, true))
 
   local explanation = Settings.CreateElementInitializer("SeekSettingsTextTemplate", {})
   function explanation.InitFrame(_, frame)
-    frame.Text:SetText(L.SETTING_OTHER_CHARACTERS_EXPLANATION)
+    frame.Text:SetText(explanationText)
   end
   layout:AddInitializer(explanation)
 end
@@ -183,8 +188,9 @@ local function HiddenCharactersSetting()
 end
 
 -- The page: the character switch, the visible results slider, the tooltip
--- side dropdown, the "Other characters…" button, and the minimap icon
--- checkbox.
+-- side dropdown, the "Other characters…" button, the minimap icon
+-- checkbox, and, last, the "Forget all picks" button: it is about what
+-- Seek remembers, not a setting.
 local function RegisterPage()
   local layout
   page, layout = Settings.RegisterVerticalLayoutCategory(L.NAME)
@@ -217,11 +223,17 @@ local function RegisterPage()
   local tooltipSideSetting = StoreSetting("SEEK_TOOLTIP_SIDE", "tooltipSide", L.SETTING_TOOLTIP_SIDE)
   Settings.CreateDropdown(page, tooltipSideSetting, TooltipSideChoices, L.SETTING_TOOLTIP_SIDE_TOOLTIP)
 
-  AddOtherCharacters(layout)
+  AddButton(layout, L.SETTING_OTHER_CHARACTERS, L.SETTING_OTHER_CHARACTERS_EXPLANATION, function(self)
+    MenuUtil.CreateContextMenu(self, OtherCharactersMenu)
+  end)
   HiddenCharactersSetting()
 
   local minimapIconSetting = StoreSetting("SEEK_MINIMAP_ICON", "minimapIcon", L.SETTING_MINIMAP_ICON)
   Settings.CreateCheckbox(page, minimapIconSetting, L.SETTING_MINIMAP_ICON_TOOLTIP)
+
+  AddButton(layout, L.SETTING_FORGET_ALL_PICKS, L.SETTING_FORGET_ALL_PICKS_EXPLANATION, function()
+    ns.Confirm(L.FORGET_ALL_PICKS_QUESTION, ns.ForgetAllPicks)
+  end)
 
   Settings.RegisterAddOnCategory(page)
   -- The game option source lists the page's settings as game options.

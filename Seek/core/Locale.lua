@@ -95,6 +95,16 @@ ns.L = {
   SETTING_MINIMAP_ICON_TOOLTIP = "Shows Seek's magnifying glass at the edge of the minimap. A left click "
     .. "on it opens or closes the search bar, and a right click opens these settings. Drag it to move it "
     .. "along the edge.",
+  -- The button that forgets all picks of this character, the explanation
+  -- under it, and the question before Seek forgets them
+  SETTING_FORGET_ALL_PICKS = "Forget all picks",
+  SETTING_FORGET_ALL_PICKS_EXPLANATION = "Seek ranks the things you pick higher, and shows them in the empty "
+    .. "search bar. Forget all picks of this character to start fresh.",
+  FORGET_ALL_PICKS_QUESTION = "Forget all picks of this character? This cannot be undone.",
+
+  -- The buttons of Seek's confirmation window, under its question
+  CONFIRM_YES = "Yes",
+  CONFIRM_NO = "No",
 
   -- The hover text of the minimap icon, under its title (NAME)
   HOVER_TEXT_LEFT_CLICK = "Left click: open or close the search bar",

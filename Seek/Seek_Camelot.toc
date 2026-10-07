@@ -35,12 +35,14 @@ core\SearchSession.lua
 # the sources register through. Storage.lua starts the core, and
 # Settings.lua loads the settings, when the saved variables are loaded,
 # after all of these files have run. SettingsText.xml holds a template for
-# Seek's settings page.
+# Seek's settings page, and ConfirmationWindow.lua the window that asks
+# before a button there does something that cannot be undone.
 adapters\wow\PublicApi.lua
 adapters\wow\CombatState.lua
 adapters\wow\Character.lua
 adapters\wow\Storage.lua
 adapters\wow\SettingsText.xml
+adapters\wow\ConfirmationWindow.lua
 adapters\wow\Settings.lua
 adapters\wow\Clock.lua
 adapters\wow\Scheduler.lua

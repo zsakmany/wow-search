@@ -1,7 +1,8 @@
 <!-- A row of plain text on Seek's settings page (adapters/wow/Settings.lua),
-     such as the explanation under the "Other characters…" button. The
-     Settings API has no row for a text of more than one line, so Seek has
-     its own template. Settings.lua sets the text when the row is shown.
+     such as the explanations under the buttons "Other characters…" and
+     "Forget all picks". The Settings API has no row for a text of more than
+     one line, so Seek has its own template. Settings.lua sets the text when
+     the row is shown.
      Like Blizzard's rows (SettingsListElementTemplate), the text starts 37
      pixels from the left edge; the row's height (its Size) is room for three
      lines, which the page keeps for it, so that the text does not run into

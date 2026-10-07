@@ -1,9 +1,12 @@
 -- Picks, seen from the edge of the core: a fake source gives entries through
 -- the public API, the test types a query and presses keys the way the
 -- search bar does, and reads the results in the view state. Each action the
--- core runs is a pick, except the forget action. A fake action adapter
--- takes the actions, a fake combat state blocks use actions, an in-memory
--- storage keeps the picks over a reload, and a fake clock lets days pass.
+-- core runs is a pick, except the forget action. The test forgets all picks
+-- through the core's call, as the "Forget all picks" button on Seek's
+-- settings page does. A fake action adapter takes the actions, a fake
+-- combat state blocks use actions, an in-memory storage keeps the picks
+-- over a reload and a login as another character, and a fake clock lets
+-- days pass.
 
 local FakeGame = require("tests.fake_game")
 
@@ -487,6 +490,73 @@ describe("picks", function()
       assert.is_true(view.open)
       assert.are.same({}, view.results)
       assert.are.equal(HINT, view.hint)
+    end)
+  end)
+
+  describe("forgetting all picks", function()
+    -- "Hearthstone" and "Hearty Rhino Hide" both match "hearth"; the score
+    -- puts "Hearthstone" first.
+    local entries = { Item("Hearthstone", 6948, true), Item("Hearty Rhino Hide", 8171, true) }
+
+    -- The player clicks "Forget all picks" on Seek's settings page, and Yes
+    -- in the question after it.
+    local function ForgetAllPicks()
+      game.ns.ForgetAllPicks()
+    end
+
+    -- The player picked both, "Hearty Rhino Hide" more often and with a
+    -- query that lifts it for "hearth", so it ranks first there.
+    before_each(function()
+      GivenSource("Test.Bags", entries)
+      Pick("hea", "Hearty Rhino Hide", 2)
+      Pick("stone", "Hearthstone")
+      assert.are.same({ "Hearty Rhino Hide", "Hearthstone" }, Search("hearth"))
+    end)
+
+    it("leaves the hint in the empty search bar: it is no pick itself", function()
+      ForgetAllPicks()
+      local view = session:Open()
+      assert.are.same({}, view.results)
+      assert.are.equal(HINT, view.hint)
+    end)
+
+    it("ranks by match only, as before any pick", function()
+      ForgetAllPicks()
+      assert.are.same({ "Hearthstone", "Hearty Rhino Hide" }, Search("hearth"))
+    end)
+
+    it("is kept over a reload", function()
+      ForgetAllPicks()
+      game = game:Reload()
+      GivenSource("Test.Bags", entries)
+      game:Start()
+      session = game.ns.NewSearchSession()
+      assert.are.equal(HINT, session:Open().hint)
+      assert.are.same({ "Hearthstone", "Hearty Rhino Hide" }, Search("hearth"))
+    end)
+
+    it("keeps the picks of another character", function()
+      -- The player logs in as another character, which has the same things
+      -- and forgets all its picks, and then logs in as this one again.
+      local function LogIn(character)
+        game = game:LogIn(character)
+        GivenSource("Test.Bags", entries)
+        game:Start()
+        session = game.ns.NewSearchSession()
+      end
+      LogIn("Other-Realm")
+      Pick("hearth", "Hearthstone")
+      ForgetAllPicks()
+      LogIn("Tester")
+      assert.are.same({ "Hearthstone", "Hearty Rhino Hide" }, Names(session:Open()))
+      assert.are.same({ "Hearty Rhino Hide", "Hearthstone" }, Search("hearth"))
+    end)
+
+    it("works in combat", function()
+      game:EnterCombat()
+      ForgetAllPicks()
+      assert.are.equal(HINT, session:Open().hint)
+      assert.are.same({ "Hearthstone", "Hearty Rhino Hide" }, Search("hearth"))
     end)
   end)
 

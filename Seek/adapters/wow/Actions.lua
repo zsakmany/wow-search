@@ -11,14 +11,13 @@
 -- secure buttons (see below); a quest's focus and tracking call no
 -- protected function, so Run runs them itself, like a show action.
 --
--- Show in bag works with the default Blizzard bags. With a bag addon that
--- replaces them (such as Bagnon), the bag addon's own window opens if it
--- takes over OpenBag, and nothing is highlighted: Seek finds no shown
--- Blizzard bag button to light.
+-- Show in bag works with the default Blizzard bags, the keyring too. With a
+-- bag addon that replaces them (such as Bagnon), the bag addon's own window
+-- opens if it takes over OpenBag, and nothing is highlighted: Seek finds no
+-- shown Blizzard bag button to light.
 local _, ns = ...
 
-local FIRST_BAG = Enum.BagIndex.Backpack
-local LAST_BAG = NUM_TOTAL_EQUIPPED_BAG_SLOTS or NUM_BAG_SLOTS
+local KEYRING = Enum.BagIndex.Keyring -- KEYRING_CONTAINER, -1
 
 local HIGHLIGHT_SECONDS = 4
 
@@ -92,10 +91,12 @@ driver:SetScript("OnUpdate", function(self)
   end
 end)
 
--- Opens the bags and highlights every slot that holds the item.
+-- Opens the bags and highlights every slot that holds the item. The bags
+-- are the ones that the bag source reads (ns.BagIDs in
+-- adapters/wow/BagSource.lua), the keyring too when the game has one.
 local function ShowInBag(entry)
   targets = {}
-  for bag = FIRST_BAG, LAST_BAG do
+  for _, bag in ipairs(ns.BagIDs()) do
     for slot = 1, C_Container.GetContainerNumSlots(bag) do
       if C_Container.GetContainerItemID(bag, slot) == entry.gameID then
         targets[#targets + 1] = { bag = bag, slot = slot, itemID = entry.gameID }
@@ -104,9 +105,22 @@ local function ShowInBag(entry)
   end
 
   -- Open only the bags that hold the item. With the game's "Combine bags"
-  -- option on, OpenBag opens the combined bag instead.
+  -- option on, OpenBag opens the combined bag instead, except for the
+  -- keyring: it always opens in its own frame, as the game's keyring button
+  -- opens it. For the keyring, Seek does not ask IsBagOpen first: while the
+  -- combined bag is shown, IsBagOpen says that the keyring is open too
+  -- (ContainerFrameCombinedBagsMixin:IsBagOpen in Blizzard_UIPanels_Game/
+  -- Mainline/ContainerFrame.lua). OpenBag does nothing for a keyring that is
+  -- open already.
+  --
+  -- The showKeyring CVar does not stop OpenBag: only ToggleBag, which the
+  -- game's keyring button calls, checks it. The game turns it on by itself
+  -- once the character has a key (KeyRingMixin:TriggerTutorial in
+  -- Blizzard_MainMenuBarBagButtons/Camelot/MainMenuBarBagButtons.lua). When
+  -- it is off all the same (the player can turn it off with /console), the
+  -- keyring button does not open the keyring, but Show in bag does.
   for _, target in ipairs(targets) do
-    if not IsBagOpen(target.bag) then
+    if target.bag == KEYRING or not IsBagOpen(target.bag) then
       OpenBag(target.bag)
     end
   end

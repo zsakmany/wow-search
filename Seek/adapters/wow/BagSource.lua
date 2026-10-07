@@ -1,10 +1,11 @@
 -- Seek's bag source: one entry per distinct item in the character's bags
--- (the backpack and the equipped bags, not the bank), with the item's
--- tooltip text as its long text, and its item count: the stacks of all of
--- the slots that hold the item, added up. It registers through the public
--- `Seek` table, like any other addon's source. Each entry has the `inBags`
--- fact, which gives it its actions. The core also keeps these items, with
--- their counts, as the character's bags, for the player's other characters
+-- (the backpack, the equipped bags, and the keyring, not the bank), with
+-- the item's tooltip text as its long text, and its item count: the stacks
+-- of all of the slots that hold the item, added up. A key is an ordinary
+-- item entry, of the "item" kind. It registers through the public `Seek`
+-- table, like any other addon's source. Each entry has the `inBags` fact,
+-- which gives it its actions. The core also keeps these items, with their
+-- counts, as the character's bags, for the player's other characters
 -- (core/CharacterBags.lua).
 local _, ns = ...
 
@@ -12,8 +13,29 @@ local SOURCE_ID = ns.BAG_SOURCE_ID
 
 local FIRST_BAG = Enum.BagIndex.Backpack
 local LAST_BAG = NUM_TOTAL_EQUIPPED_BAG_SLOTS or NUM_BAG_SLOTS
+local KEYRING = Enum.BagIndex.Keyring -- KEYRING_CONTAINER, -1
 
 local ITEM_NAME_LINE = Enum.TooltipDataLineType.ItemName
+
+-- The bag IDs of the bags that Seek reads: the backpack, the equipped bags,
+-- and the keyring last, when the game has one (C_ActionBar.ShouldShowKeyring,
+-- which the game's own bag code checks too). The game reads the keyring with
+-- the same container calls as the other bags. "Show in bag" looks for the
+-- item in these same bags (adapters/wow/Actions.lua).
+--
+-- The showKeyring CVar does not matter here: the game's keyring button
+-- checks it before it opens the keyring, and the game's bag code reads the
+-- keyring without it (ItemUtil.IteratePlayerInventory).
+function ns.BagIDs()
+  local bags = {}
+  for bag = FIRST_BAG, LAST_BAG do
+    bags[#bags + 1] = bag
+  end
+  if C_ActionBar.ShouldShowKeyring() then
+    bags[#bags + 1] = KEYRING
+  end
+  return bags
+end
 
 -- Items whose data the game is still loading (item ID -> true).
 local loading = {}
@@ -54,7 +76,7 @@ end
 local function GetEntries()
   local entries, seen, byItemID = {}, {}, {}
   local owner = ns.CurrentCharacter()
-  for bag = FIRST_BAG, LAST_BAG do
+  for _, bag in ipairs(ns.BagIDs()) do
     for slot = 1, C_Container.GetContainerNumSlots(bag) do
       local info = C_Container.GetContainerItemInfo(bag, slot)
       local itemID = info and info.itemID
@@ -95,7 +117,9 @@ end
 Seek.RegisterSource({ id = SOURCE_ID, GetEntries = GetEntries })
 
 -- BAG_UPDATE_DELAYED comes once after a batch of bag changes (loot, sell,
--- move). PLAYER_ENTERING_WORLD reads the bags once they are ready at login.
+-- move), the keyring's too: each changed bag, the keyring included, gets its
+-- BAG_UPDATE first (the game's keyring button listens to that one).
+-- PLAYER_ENTERING_WORLD reads the bags once they are ready at login.
 -- Seek decides when to read: in combat, it waits for the end (ADR 0002).
 local events = CreateFrame("Frame")
 events:RegisterEvent("BAG_UPDATE_DELAYED")

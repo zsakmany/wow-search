@@ -37,7 +37,7 @@ Seek's own short help text that shows while the mouse is on one of Seek's contro
 _Avoid_: Tooltip (for this), hint, help popup
 
 **Item count**:
-How many of an item its owner has in the backpack and the equipped bags, all stacks together. An item result shows it after the name, only when it is more than 1. Another character's item count is the one from the last time that character was played.
+How many of an item its owner has in the backpack, the equipped bags, and the keyring, all stacks together. An item result shows it after the name, only when it is more than 1. Another character's item count is the one from the last time that character was played.
 _Avoid_: Stack, stack size, quantity, amount
 
 **Long text**:

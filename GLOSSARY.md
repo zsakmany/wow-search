@@ -93,7 +93,7 @@ Something the player can run on a result. Each action is a show action, a use ac
 _Avoid_: Command, handler, activation
 
 **Show action**:
-An action that opens or highlights the thing, such as showing a quest on the map. It changes nothing in the game. Combat never blocks it.
+An action that opens or highlights the thing, such as showing a quest on the map. It changes nothing in the game. Combat never blocks it. Some show actions, such as showing a talent, run from the player's key press through Seek's secure button, as using an item does; they still change nothing in the game.
 _Avoid_: View, reveal, open
 
 **Use action**:

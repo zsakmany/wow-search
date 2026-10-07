@@ -39,25 +39,43 @@ local function Blocked(action)
   return action.type == "use" and ns.InCombat()
 end
 
--- The view state after a change. It also tells the action adapter which use
--- action the next key press would run now, so that the adapter can get it
--- ready (see Actions.lua), when it is one that combat does not block: while
--- the action list is open, its selected action (Enter); else the selected
--- result's first use action (the use key).
+-- Whether the action adapter must get `action` ready before the key press
+-- that runs it (see Actions.lua): a use action, or a show action that runs
+-- through a secure button. Nothing in combat.
+local function NeedsPreparing(action)
+  if not action or ns.InCombat() then
+    return false
+  end
+  return action.type == "use" or action.type == "show" and ns.NeedsSecureButton(action)
+end
+
+-- Tells the action adapter that the next press of `key` would run `action`
+-- for `entry`, when the action needs preparing, or else nothing.
+local function PrepareKey(session, key, action, entry)
+  if session.isOpen and NeedsPreparing(action) then
+    ns.PrepareAction(key, action, entry)
+  else
+    ns.PrepareAction(key, nil)
+  end
+end
+
+-- The view state after a change. It also tells the action adapter which
+-- action each key would run now, so that the adapter can get it ready (see
+-- Actions.lua), when it needs that: while the action list is open, its
+-- selected action (Enter); else the selected result's main action (Enter)
+-- and its first use action (the use key).
 local function Changed(session)
   local list = session.actionList
-  local action, entry
+  local enter, useKey, entry
   if list then
-    action, entry = list.actions[list.selection], list.entry
+    enter, entry = list.actions[list.selection], list.entry
   else
     entry = session.results[session.selection]
-    action = entry and ns.FirstUseAction(entry)
+    enter = entry and ns.MainAction(entry)
+    useKey = entry and ns.FirstUseAction(entry)
   end
-  if session.isOpen and action and action.type == "use" and not Blocked(action) then
-    ns.PrepareAction(action, entry)
-  else
-    ns.PrepareAction(nil)
-  end
+  PrepareKey(session, "ENTER", enter, entry)
+  PrepareKey(session, "USE", useKey, entry)
   return session:View()
 end
 

@@ -63,15 +63,16 @@ local function UseKeyRow(view)
 end
 
 -- A fake action adapter: `requests` holds each action that the core asked
--- to run, and `prepared` the use action that the core asked to prepare last
--- ("action kind gameID", or false for none).
+-- to run, and `prepared` the action that the core asked to prepare last
+-- for each key, Enter ("ENTER") and the use key ("USE"): "action kind
+-- gameID", or false for none.
 local function NewActionAdapter()
-  local adapter = { requests = {}, prepared = false }
+  local adapter = { requests = {}, prepared = { ENTER = false, USE = false } }
   function adapter:Run(actionID, entry)
     self.requests[#self.requests + 1] = { action = actionID, kind = entry.kind, gameID = entry.gameID }
   end
-  function adapter:Prepare(actionID, entry)
-    self.prepared = actionID and (actionID .. " " .. entry.kind .. " " .. entry.gameID) or false
+  function adapter:Prepare(key, actionID, entry)
+    self.prepared[key] = actionID and (actionID .. " " .. entry.kind .. " " .. entry.gameID) or false
   end
   return adapter
 end
@@ -322,38 +323,39 @@ describe("use actions", function()
   end)
 
   describe("preparing", function()
-    it("prepares the selected use action, and nothing on a show action", function()
+    it("prepares the selected use action for Enter in the action list, and nothing on a show action", function()
       GivenSource("Test.Bags", { Item("Hearthstone", 6948, true) })
       OpenList("hearth")
-      assert.is_false(actions.prepared)
+      assert.are.same({ ENTER = false, USE = false }, actions.prepared)
       session:PressKey("DOWN")
-      assert.are.equal("useItem item 6948", actions.prepared)
+      assert.are.same({ ENTER = "useItem item 6948", USE = false }, actions.prepared)
       session:PressKey("UP")
-      assert.is_false(actions.prepared)
+      assert.are.same({ ENTER = false, USE = false }, actions.prepared)
     end)
 
-    it("prepares the selected result's first use action while the action list is closed", function()
+    it("prepares the selected result's first use action for the use key while the action list is closed", function()
       GivenSource("Test.Bags", { Item("Hearthstone", 6948, true), Item("Hearty Rhino Hide", 8171) })
       session:Open()
       session:SetQuery("hea")
-      assert.are.equal("useItem item 6948", actions.prepared)
+      -- Enter runs the main action, Show in bag, which needs no preparing.
+      assert.are.same({ ENTER = false, USE = "useItem item 6948" }, actions.prepared)
       -- The hide cannot be used.
       session:PressKey("DOWN")
-      assert.is_false(actions.prepared)
+      assert.are.same({ ENTER = false, USE = false }, actions.prepared)
       session:PressKey("UP")
-      assert.are.equal("useItem item 6948", actions.prepared)
+      assert.are.same({ ENTER = false, USE = "useItem item 6948" }, actions.prepared)
     end)
 
     it("prepares the result's use action again once the action list closes, and nothing once the search bar closes",
       function()
         GivenSource("Test.Bags", { Item("Hearthstone", 6948, true) })
         OpenList("hearth")
-        assert.is_false(actions.prepared)
+        assert.are.same({ ENTER = false, USE = false }, actions.prepared)
         session:PressKey("ESCAPE")
-        assert.are.equal("useItem item 6948", actions.prepared)
+        assert.are.same({ ENTER = false, USE = "useItem item 6948" }, actions.prepared)
 
         session:Close()
-        assert.is_false(actions.prepared)
+        assert.are.same({ ENTER = false, USE = false }, actions.prepared)
       end)
 
     it("prepares nothing in combat, and the selected use action again when combat ends", function()
@@ -361,9 +363,9 @@ describe("use actions", function()
       OpenList("hearth")
       session:PressKey("DOWN")
       game:EnterCombat()
-      assert.is_false(actions.prepared)
+      assert.are.same({ ENTER = false, USE = false }, actions.prepared)
       game:LeaveCombat()
-      assert.are.equal("useItem item 6948", actions.prepared)
+      assert.are.same({ ENTER = "useItem item 6948", USE = false }, actions.prepared)
     end)
 
     it("prepares nothing for the selected result in combat, and its use action again when combat ends", function()
@@ -371,9 +373,42 @@ describe("use actions", function()
       session:Open()
       session:SetQuery("hearth")
       game:EnterCombat()
-      assert.is_false(actions.prepared)
+      assert.are.same({ ENTER = false, USE = false }, actions.prepared)
       game:LeaveCombat()
-      assert.are.equal("useItem item 6948", actions.prepared)
+      assert.are.same({ ENTER = false, USE = "useItem item 6948" }, actions.prepared)
+    end)
+
+    describe("with show actions that run through a secure button", function()
+      -- The fake action adapter also says which show actions run only from
+      -- a key press on a secure button: those in `secure`.
+      local function GivenSecureShowActions(secure)
+        function actions.NeedsSecureButton(_, actionID)
+          return secure[actionID] == true
+        end
+      end
+
+      it("prepares no show action that the action adapter does not name", function()
+        GivenSecureShowActions({ showInTalents = true })
+        GivenSource("Test.Bags", { Item("Hearthstone", 6948, true) })
+        GivenSource("Test.Quests", { Quest("The Defias Brotherhood", 65) })
+        session:Open()
+        session:SetQuery("hearth")
+        assert.are.same({ ENTER = false, USE = "useItem item 6948" }, actions.prepared)
+        OpenList("defias")
+        assert.are.same({ ENTER = false, USE = false }, actions.prepared)
+      end)
+
+      it("prepares a named show action for Enter, and the use action for the use key, on the same result", function()
+        GivenSecureShowActions({ showInBag = true })
+        GivenSource("Test.Bags", { Item("Hearthstone", 6948, true) })
+        session:Open()
+        session:SetQuery("hearth")
+        assert.are.same({ ENTER = "showInBag item 6948", USE = "useItem item 6948" }, actions.prepared)
+        session:PressKey("TAB")
+        assert.are.same({ ENTER = "showInBag item 6948", USE = false }, actions.prepared)
+        session:PressKey("DOWN")
+        assert.are.same({ ENTER = "useItem item 6948", USE = false }, actions.prepared)
+      end)
     end)
 
     it("prepares nothing when the selected use action is blocked from the start", function()
@@ -381,7 +416,7 @@ describe("use actions", function()
       game:EnterCombat()
       OpenList("hearth")
       session:PressKey("DOWN")
-      assert.is_false(actions.prepared)
+      assert.are.same({ ENTER = false, USE = false }, actions.prepared)
     end)
   end)
 end)

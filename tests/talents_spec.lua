@@ -1,8 +1,9 @@
 -- Talents, seen from the edge of the core: a fake source gives talent
 -- entries through the public API, with their spent and possible points;
 -- the test types a query and presses keys the way the search bar does,
--- reads the view state, and a fake action adapter writes down each action
--- that the core asks it to run.
+-- reads the view state, turns a fake combat state on and off, and a fake
+-- action adapter writes down each action that the core asks it to run or
+-- to prepare.
 
 local FakeGame = require("tests.fake_game")
 
@@ -140,6 +141,91 @@ describe("a talent", function()
     session:SetQuery("blazing")
     session:PressKey("ENTER")
     assert.are.same({ "Blazing Speed | Talent · 0/1" }, Search(""))
+  end)
+end)
+
+describe("a talent's Show in talents, through the secure button", function()
+  local game, session, actions
+
+  -- A fake action adapter that runs Show in talents only from a key press
+  -- on a secure button, as the WoW action adapter does. `requests` holds
+  -- each action that the core asked it to run ("action name"), and
+  -- `prepared` what the core asked it to prepare last for each key ("ENTER"
+  -- or "USE"): "action name", or false for none.
+  local function NewActionAdapter()
+    local adapter = { requests = {}, prepared = { ENTER = false, USE = false } }
+    function adapter:Run(actionID, entry)
+      self.requests[#self.requests + 1] = actionID .. " " .. entry.name
+    end
+    function adapter:Prepare(key, actionID, entry)
+      self.prepared[key] = actionID and (actionID .. " " .. entry.name) or false
+    end
+    function adapter.NeedsSecureButton(_, actionID)
+      return actionID == "showInTalents"
+    end
+    return adapter
+  end
+
+  before_each(function()
+    game = FakeGame.Started()
+    actions = NewActionAdapter()
+    game.ns.SetActionAdapter(actions)
+    session = game.ns.NewSearchSession()
+    game.Seek.RegisterSource({
+      id = "Test.Talents",
+      GetEntries = function()
+        return { Talent("Blazing Speed", 1002, 0, 1), Talent("Improved Fireball", 1001, 2, 3) }
+      end,
+    })
+  end)
+
+  it("is prepared for Enter while its result is selected", function()
+    session:Open()
+    session:SetQuery("blazing")
+    assert.are.equal("showInTalents Blazing Speed", actions.prepared.ENTER)
+    assert.is_false(actions.prepared.USE)
+  end)
+
+  it("is prepared for Enter while it is selected in the action list", function()
+    session:Open()
+    session:SetQuery("fireball")
+    session:PressKey("TAB")
+    assert.are.same({ ENTER = "showInTalents Improved Fireball", USE = false }, actions.prepared)
+  end)
+
+  -- The secure button runs it on the key press; then the search bar sends
+  -- Enter to the core, which asks the adapter to run it, as for a use action.
+  it("still runs as the main action, a show action, on Enter: it closes the search bar, and is a pick", function()
+    session:Open()
+    session:SetQuery("blazing")
+    local view = session:PressKey("ENTER")
+    assert.are.same({ "showInTalents Blazing Speed" }, actions.requests)
+    assert.is_false(view.open)
+    assert.are.same({ ENTER = false, USE = false }, actions.prepared)
+
+    session:Open()
+    assert.are.equal("Blazing Speed", session:View().results[1].name)
+    session:PressKey("TAB")
+    assert.are.equal("show", session:View().actionList.rows[1].type)
+  end)
+
+  -- In combat, WoW lets no addon set up a secure button, so the core
+  -- prepares nothing; Enter still reaches the core, as for any show action.
+  it("is prepared for nothing in combat, is never blocked there, and is prepared again when combat ends", function()
+    session:Open()
+    session:SetQuery("blazing")
+    game:EnterCombat()
+    assert.are.same({ ENTER = false, USE = false }, actions.prepared)
+    game:LeaveCombat()
+    assert.are.same({ ENTER = "showInTalents Blazing Speed", USE = false }, actions.prepared)
+
+    game:EnterCombat()
+    local view = session:PressKey("TAB")
+    assert.is_falsy(view.actionList.rows[1].blocked)
+    assert.are.same({ ENTER = false, USE = false }, actions.prepared)
+    view = session:PressKey("ENTER")
+    assert.are.same({ "showInTalents Blazing Speed" }, actions.requests)
+    assert.is_false(view.open)
   end)
 end)
 

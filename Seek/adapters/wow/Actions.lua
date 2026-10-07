@@ -2,12 +2,14 @@
 -- the Actions port (core/Actions.lua). Show actions only change what the
 -- player sees, so they also work in combat; the exceptions are the world
 -- map and the Options window, which WoW does not let addons open in combat,
--- and the talent window (see ShowInTalents). There is no "show in
--- spellbook": opening the spellbook from addon code taints it (issue #29);
--- "show in talents" opens the same window, at its talents tab. The core
--- blocks every use action in combat. Use on an item and cast on a spell
--- run through a secure button (see below); a quest's focus and tracking
--- call no protected function, so Run runs them itself, like a show action.
+-- and the talent window, which opens through a secure button that Seek's
+-- keys cannot reach in combat (see ClickTalentButton). There is no "show
+-- in spellbook": opening the spellbook from addon code taints it (issue
+-- #29); "show in talents" opens the same window, at its talents tab, from
+-- the game's own talent button. The core blocks every use action in
+-- combat. Use on an item, cast on a spell, and show in talents run through
+-- secure buttons (see below); a quest's focus and tracking call no
+-- protected function, so Run runs them itself, like a show action.
 --
 -- Show in bag works with the default Blizzard bags. With a bag addon that
 -- replaces them (such as Bagnon), the bag addon's own window opens if it
@@ -255,137 +257,151 @@ local function OpenInOptionsWindow(entry)
   end
 end
 
--- Lights up the talent in the open talent window through the window's own
--- search, as if the player had picked the talent's name from that search's
--- list (ClassTalentSearchMixin:OnPreviewSearchResultClicked in
--- Blizzard_SharedTalentUI/Blizzard_ClassTalentSearch.lua): the search box
--- shows the name, and the window lights every talent that matches it. It
--- does nothing when the talents tab is not shown.
+-- "Show in talents": opens the talent window at its talents tab, the way
+-- the player's own click on the game's talent button does. Seek's secure
+-- button for Enter (see below) clicks the game's TalentMicroButton (the
+-- secure action type "click" with the "clickbutton" attribute,
+-- SECURE_ACTIONS.click in Blizzard_FrameXML/SecureTemplates.lua) from the
+-- player's real key press. The button's own OnClick then opens the window
+-- (PlayerSpellsMicroButtonMixin:OnClick in Blizzard_MicroMenu/Mainline/
+-- MainMenuBarMicroButtons.lua: with `talentsOnly`, it calls
+-- PlayerSpellsUtil.TogglePlayerSpellsFrame at the talents tab), as
+-- Blizzard's own, secure code. The window shows the talents of the spec
+-- group that it showed last; Seek does not switch it, and does not light
+-- up the talent: writing into the window's own search box from Seek's code
+-- would taint it, as it tainted the Options window (issue #25).
 --
--- Taint: NOT TESTED IN THE GAME YET. Filling Blizzard's own search box from
--- addon code tainted the Options window until a /reload (issue #25), and
--- this one may do the same to the talent window: the search box's text and
--- the window's search state count as Seek's. This step is kept apart from
--- opening the window so that it can be removed alone (issue #54): if the
--- game test finds taint, delete this function and its call in
--- ShowInTalents.
-local function LightUpTalent(name)
-  local talents = PlayerSpellsFrame and PlayerSpellsFrame.TalentsFrame
-  if not (talents and talents:IsVisible() and talents.SearchBox and talents.SetFullResultSearch) then
-    return
-  end
-  talents.SearchBox:ClearFocus()
-  talents.SearchBox:SetText(name)
-  talents:SetFullResultSearch(name)
+-- The game's button is a toggle: when the window is open at the talents
+-- tab, the click closes it; open at another tab, it switches to the
+-- talents tab.
+--
+-- The click does nothing when the game's button is disabled (WoW does not
+-- click a disabled button): before the character has earned a talent
+-- point (PlayerSpellsMicroButtonMixin:UpdateMicroButton), and while a full
+-- screen frame disables the micro buttons (DisableMicroButtons). It also
+-- does nothing in the game's quick keybind mode, and when the game has no
+-- TalentMicroButton. A hidden button (a game rule can leave it out of the
+-- micro menu) still takes the click. Either way, the search bar closes,
+-- and it is a pick.
+--
+-- Combat: the game's button opens the window in combat too, but in combat
+-- no key press of Seek's reaches the secure button. The search bar sets no
+-- key bindings in combat (adapters/wow/SearchBar.lua), and the core
+-- prepares nothing then. So Enter goes to the core, which closes the search
+-- bar and asks Run, and Run does nothing (see AlreadyRun): opening the
+-- window from Seek's code would taint it again. After a /reload in combat,
+-- the buttons are set up only when combat ends (see SetUp); until then
+-- Enter on a talent does the same.
+--
+-- Taint: Seek calls none of Blizzard's talent window code. Before issue
+-- #56, Seek opened the window with PlayerSpellsUtil.OpenToClassTalentsTab
+-- from its own code: the window's OnShow then ran MultiActionBar_
+-- ShowAllGrids as Seek's code, which tainted action bar state, and the
+-- action bars hid in the next fight.
+local function ClickTalentButton()
+  return { type = "click", clickbutton = TalentMicroButton }
 end
 
--- Opens the talent window at the talents tab, through the function that
--- Blizzard's own code calls for it (PlayerSpellsUtil.OpenToClassTalentsTab
--- in Blizzard_FrameXMLUtil/Mainline/PlayerSpellsUtil.lua), and lights up
--- the talent there (LightUpTalent). The window shows the tab of the spec
--- group that it showed last; Seek does not switch it.
---
--- Not in combat: in combat this does nothing, like "Show on map". Opening
--- the window runs action bar code (see below), which is riskiest while
--- secure code is locked down in combat.
---
--- Taint: the talent window is also the spellbook, which addon code must not
--- open (issue #29). Opening the window runs MultiActionBar_ShowAllGrids
--- (PlayerSpellsFrameMixin:OnShow), which writes action bar state that
--- secure code reads later, as Seek's code. The maintainer opened it this
--- way with /run and found no problem; the game test of issue #54 checks
--- the action bars, the spellbook, and a spec group switch after it.
-local function ShowInTalents(entry)
-  if InCombatLockdown() or not (PlayerSpellsUtil and PlayerSpellsUtil.OpenToClassTalentsTab) then
-    return
-  end
-  PlayerSpellsUtil.OpenToClassTalentsTab()
-  -- The light-up step: remove this line (and LightUpTalent) alone if it
-  -- taints, and keep only opening the window.
-  LightUpTalent(entry.name)
-end
-
--- Use on an item and cast on a spell go through a secure action button
--- (SecureActionButtonTemplate, Blizzard_FrameXML/SecureTemplates.lua). WoW
--- runs them only from Blizzard's secure code, started by a real key press
--- or click; addon code that calls UseItemByName or CastSpellByID itself is
--- blocked. So:
---   1. Prepare (below): when the core says which use action the next key
---      press would run, Seek sets the button's attributes. Attributes of a
---      secure button can only change outside combat; the core prepares
---      nothing in combat, and Prepare checks the lockdown too.
---   2. The search bar binds a key to a click on this button
---      (adapters/wow/SearchBar.lua): Enter while that use action is
---      selected in the action list, or the use key while the action list is
---      closed and that use action is the selected result's first one. The
---      player's key press is the real key press.
+-- Use on an item, cast on a spell, and show in talents go through secure
+-- action buttons (SecureActionButtonTemplate, Blizzard_FrameXML/
+-- SecureTemplates.lua). WoW runs the first two only from Blizzard's secure
+-- code, started by a real key press or click; addon code that calls
+-- UseItemByName or CastSpellByID itself is blocked. The third would work
+-- from addon code, but taints (see ClickTalentButton). So:
+--   1. Prepare (below): when the core says which action a key would run
+--      next (Enter, or the use key), Seek sets the attributes of that key's
+--      secure button. Attributes of a secure button can only change outside
+--      combat; the core prepares nothing in combat, and Prepare checks the
+--      lockdown too.
+--   2. The search bar binds the key to a click on its button
+--      (adapters/wow/SearchBar.lua): Enter while that action is selected in
+--      the action list or is the selected result's main action, or the use
+--      key while the action list is closed and that use action is the
+--      selected result's first one. The player's key press is the real key
+--      press.
 --   3. The button's own secure OnClick runs the action. Then its PostClick
 --      tells the search bar, which sends that key to the core, and the core
---      asks Run for the use action. Run has nothing left to do then.
+--      asks Run for the action. Run has nothing left to do then.
 --
--- The button is not a child of the search bar: a protected child would make
--- the search bar protected too, and it could no longer open and close in
--- combat. It is hidden; a key binding clicks it all the same.
-local USE_BUTTON_NAME = "SeekUseButton"
+-- Each key has its own button: on one result, Enter's show action and the
+-- use key's use action can both need one. The buttons are not children of
+-- the search bar: a protected child would make the search bar protected
+-- too, and it could no longer open and close in combat. They are hidden; a
+-- key binding clicks them all the same.
 
--- The use actions that run through the secure button, and the button's
--- attributes for each: its type, and its item or spell, from the entry's
--- game ID. The other use actions run from Run (see the list of actions at
--- the end).
-local ON_USE_BUTTON = {
+-- The actions that run through a secure button, and the button's
+-- attributes for each, from the entry's game ID. The other actions run
+-- from Run (see the list of actions at the end).
+local ON_SECURE_BUTTON = {
   useItem = function(gameID)
-    return "item", "item:" .. gameID, nil
+    return { type = "item", item = "item:" .. gameID }
   end,
   castSpell = function(gameID)
-    return "spell", nil, gameID
+    return { type = "spell", spell = gameID }
   end,
+  showInTalents = ClickTalentButton,
 }
 
-local useButton = CreateFrame("Button", USE_BUTTON_NAME, UIParent, "SecureActionButtonTemplate")
+-- Every attribute that ON_SECURE_BUTTON sets, so that a button keeps none
+-- of an earlier action's.
+local ATTRIBUTES = { "type", "item", "spell", "clickbutton" }
 
-local setUp = false -- the button's fixed settings are made
-local requested -- the use action that the core asked for last ({ id, entry }), or nil
-local preparedID -- the use action that the button's attributes are set to, or nil
-
--- Sets the button's attributes for the requested use action, or clears them
--- when there is none. Only outside combat; in combat nothing changes, and
--- the button counts as not prepared.
-local function Apply()
-  if not setUp or InCombatLockdown() then
-    preparedID = nil
-    return
-  end
-  local actionType, item, spell
-  local attributes = requested and ON_USE_BUTTON[requested.id]
-  if attributes then
-    actionType, item, spell = attributes(requested.entry.gameID)
-  end
-  useButton:SetAttribute("type", actionType)
-  useButton:SetAttribute("item", item)
-  useButton:SetAttribute("spell", spell)
-  preparedID = actionType and requested.id or nil
+-- The secure buttons, by the core's name of the key that clicks them. Each
+-- has its global name, its frame, the action that the core asked for last
+-- for its key (`requested`: { id, entry }, or nil), and the action that its
+-- attributes are set to (`preparedID`, or nil).
+local buttons = {
+  ENTER = { name = "SeekEnterButton" },
+  USE = { name = "SeekUseButton" },
+}
+for _, button in pairs(buttons) do
+  button.frame = CreateFrame("Button", button.name, UIParent, "SecureActionButtonTemplate")
 end
 
--- The button's fixed settings, once, outside combat (a /reload in combat
+local setUp = false -- the buttons' fixed settings are made
+
+-- Sets a button's attributes for its requested action, or clears them when
+-- there is none. Only outside combat; in combat nothing changes, and the
+-- button counts as not prepared.
+local function Apply(button)
+  if not setUp or InCombatLockdown() then
+    button.preparedID = nil
+    return
+  end
+  local requested = button.requested
+  local Attributes = requested and ON_SECURE_BUTTON[requested.id]
+  local attributes = Attributes and Attributes(requested.entry.gameID) or {}
+  for _, name in ipairs(ATTRIBUTES) do
+    button.frame:SetAttribute(name, attributes[name])
+  end
+  button.preparedID = attributes.type and requested.id or nil
+end
+
+-- The buttons' fixed settings, once, outside combat (a /reload in combat
 -- waits for its end, and then prepares what the core asked for meanwhile).
--- Hidden, and only a key binding clicks it. It acts on the key's down
+-- Hidden, and only a key binding clicks them. They act on the key's down
 -- press, whatever the player's "cast on key down" setting is:
 -- SecureActionButton_OnClick reads the "useOnKeyDown" attribute before
--- that setting. It gets no up click, so the action never runs twice.
+-- that setting. They get no up click, so the action never runs twice.
 local function SetUp()
   if setUp or InCombatLockdown() then
     return
   end
-  useButton:Hide()
-  useButton:RegisterForClicks("AnyDown")
-  useButton:SetAttribute("useOnKeyDown", true)
-  useButton:SetScript("PostClick", function(_, _, down)
-    if down and preparedID and ns.OnUseButtonClicked then
-      ns.OnUseButtonClicked()
-    end
-  end)
+  for key, button in pairs(buttons) do
+    local frame = button.frame
+    frame:Hide()
+    frame:RegisterForClicks("AnyDown")
+    frame:SetAttribute("useOnKeyDown", true)
+    frame:SetScript("PostClick", function(_, _, down)
+      if down and button.preparedID and ns.OnSecureButtonClicked then
+        ns.OnSecureButtonClicked(key)
+      end
+    end)
+  end
   setUp = true
-  Apply()
+  for _, button in pairs(buttons) do
+    Apply(button)
+  end
 end
 
 SetUp()
@@ -400,27 +416,35 @@ if not setUp then
   end)
 end
 
--- The secure button's global name, for a key binding that clicks it.
-ns.USE_BUTTON_NAME = USE_BUTTON_NAME
+-- The global name of the secure button that `key` ("ENTER" or "USE")
+-- clicks, for a key binding that clicks it.
+function ns.SecureButtonName(key)
+  return buttons[key].name
+end
 
--- The use action that the secure button runs on its next click, or nil.
-function ns.PreparedUseAction()
+-- The action that the secure button of `key` runs on its next click, or
+-- nil.
+function ns.PreparedSecureAction(key)
   if InCombatLockdown() then
     return nil
   end
-  return preparedID
+  return buttons[key].preparedID
 end
 
--- Whether the use action that the core asked for last (the one that the
--- player's next key press would run, see Prepare) runs through the secure
--- button, whether or not the button is ready for it. False when the core
--- asked for none (always in combat), and for a use action that Run runs
--- itself: the search bar sends the key to the core for that one.
-function ns.UseButtonRequested()
-  return requested ~= nil and ON_USE_BUTTON[requested.id] ~= nil
+-- Whether the action that the core asked for last for `key` (the one that
+-- the player's next press of that key would run, see Prepare) runs through
+-- the secure button, whether or not the button is ready for it. False when
+-- the core asked for none (always in combat), and for an action that Run
+-- runs itself: the search bar sends the key to the core for that one.
+function ns.SecureButtonRequested(key)
+  local requested = buttons[key].requested
+  return requested ~= nil and ON_SECURE_BUTTON[requested.id] ~= nil
 end
 
--- The key press on the secure button has already run the use action.
+-- The key press on a secure button has already run the action. In combat,
+-- no key press reaches a secure button (see ClickTalentButton): then Run
+-- comes alone, a use action never does (the core blocks it), and "show in
+-- talents" does nothing.
 local function AlreadyRun() end
 
 -- Each action id from the kind registry (core/Kinds.lua) and how to run it.
@@ -428,7 +452,7 @@ local run = {
   showInBag = ShowInBag,
   showOnMap = ShowOnMap,
   openInOptionsWindow = OpenInOptionsWindow,
-  showInTalents = ShowInTalents,
+  showInTalents = AlreadyRun,
   useItem = AlreadyRun,
   castSpell = AlreadyRun,
   focusQuest = FocusQuest,
@@ -445,8 +469,12 @@ ns.SetActionAdapter({
     end
     action(entry)
   end,
-  Prepare = function(_, actionID, entry)
-    requested = actionID and { id = actionID, entry = entry } or nil
-    Apply()
+  Prepare = function(_, key, actionID, entry)
+    local button = buttons[key]
+    button.requested = actionID and { id = actionID, entry = entry } or nil
+    Apply(button)
+  end,
+  NeedsSecureButton = function(_, actionID)
+    return ON_SECURE_BUTTON[actionID] ~= nil
   end,
 })

@@ -12,10 +12,11 @@
 --   id     a stable name; the action adapter runs the action by this id
 --   label  the action's name, from the locale table
 --   type   "show" (opens or highlights the thing and changes nothing in
---          the game; combat never blocks it) or "use" (changes something
---          in the game: the character does the thing, or the thing
---          changes, such as a quest's focus; in combat it is blocked, see
---          SearchSession.lua)
+--          the game; combat never blocks it; the action adapter may run it
+--          through a secure button, see Actions.lua) or "use" (changes
+--          something in the game: the character does the thing, or the
+--          thing changes, such as a quest's focus; in combat it is blocked,
+--          see SearchSession.lua)
 --   needs  (optional) the names of the entry facts that must be true for
 --          the entry to have this action, such as "usable": only an item
 --          that can be used gets "use"
@@ -85,9 +86,10 @@ ns.kinds = {
     },
   },
   -- A talent (see GLOSSARY.md). Its row's kind text shows its points. No
-  -- use action: Seek never spends points or changes talents. In combat,
-  -- the WoW action adapter does not open the talent window; then the action
-  -- does nothing.
+  -- use action: Seek never spends points or changes talents. The WoW action
+  -- adapter opens the talent window through a secure button, from the
+  -- player's key press (NeedsSecureButton in Actions.lua); in combat no key
+  -- press reaches that button, and then the action does nothing.
   talent = {
     label = L.KIND_TALENT,
     actions = {

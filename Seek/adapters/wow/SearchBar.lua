@@ -3,8 +3,8 @@
 -- the view state that comes back. It keeps no search state of its own.
 --
 -- A plain (not protected) frame, so it can open and close in combat. It has
--- no protected children: the secure button for items and spells is not
--- part of it (adapters/wow/Actions.lua).
+-- no protected children: the secure buttons for items, spells, and talents
+-- are not part of it (adapters/wow/Actions.lua).
 local _, ns = ...
 
 local L = ns.L
@@ -477,15 +477,19 @@ local function RenderContent(view)
   RenderActionList(view)
 end
 
--- Keys for use actions: how Enter in the action list, and the use key on
--- the results, reach the secure button.
+-- Keys for secure actions: how Enter and the use key reach Seek's secure
+-- buttons, one for each key (adapters/wow/Actions.lua).
 --
--- While the text box has keyboard focus, no key binding fires, and use on
--- an item or cast on a spell needs a key binding: WoW runs it only from a
--- real key press on a secure button (adapters/wow/Actions.lua). The other
--- use actions (a quest's focus and tracking) need no secure button: Enter
--- and the use key go to the core for them, as for a show action, and the
--- action adapter runs them (see PressEnter and PressUseKey).
+-- While the text box has keyboard focus, no key binding fires, and some
+-- actions need a key binding: WoW runs use on an item and cast on a spell
+-- only from a real key press on a secure button, and Seek opens the talent
+-- window only from one (show in talents, so that nothing is tainted). The
+-- core asks the action adapter to prepare the action that each key would
+-- run; the adapter says whether that runs through its key's secure button
+-- (ns.SecureButtonRequested). The other actions (the other show actions,
+-- a quest's focus and tracking) need no secure button: Enter and the use
+-- key go to the core for them, and the action adapter runs them (see
+-- PressEnter and PressUseKey).
 --
 -- List keys: while the action list is open outside combat, the text box
 -- gives up the focus, and the list takes the keyboard with `keys`, a plain
@@ -494,25 +498,27 @@ end
 --     Seek key closes the bar. The use key goes to the core, which does
 --     nothing with it while the list is open. Every other key is swallowed,
 --     so that it does not move the character or press an action bar button.
---   - Enter on a use action that the action adapter has prepared goes on to
+--   - Enter on an action that Enter's secure button has prepared goes on to
 --     the key bindings, where a priority override binding (owned by `keys`)
---     clicks the secure button. Its PostClick then sends Enter to the core.
+--     clicks that button. Its PostClick then sends Enter to the core.
 --     Enter on any other action goes to the core.
 -- When the list closes, or combat starts, the text box gets the focus back
 -- (unless the bar closed).
 --
--- The use key: while the action list is closed outside combat, the text box
--- has the focus, and the action adapter has prepared the selected result's
--- first use action, a priority override binding (also owned by `keys`)
--- binds the use key to a click on the secure button. When the text box
--- loses the focus (a click on the game world), the binding goes, so the use
--- key is the player's own key again; it comes back with the focus. The text
--- box keeps the focus, so typing, copy
--- and paste, and the other keys work as before: its OnKeyDown lets only the
--- use key go on to the key bindings (SetPropagateKeyboardInput), and keeps
--- every other key. The text box's own OnEnterPressed also runs for the use
--- key, and does nothing then. The secure button's PostClick sends the use
--- key to the core. (Tested in the game, see issue #7.)
+-- The results: while the action list is closed outside combat and the text
+-- box has the focus, priority override bindings (also owned by `keys`)
+-- bind Enter to a click on Enter's secure button, when that button has
+-- prepared the selected result's main action, and the use key to a click
+-- on the use key's secure button, when that one has prepared the selected
+-- result's first use action. When the text box loses the focus (a click on
+-- the game world), the bindings go, so the keys are the player's own
+-- again; they come back with the focus. The text box keeps the focus, so
+-- typing, copy and paste, and the other keys work as before: its OnKeyDown
+-- lets only a key with such a binding go on to the key bindings
+-- (SetPropagateKeyboardInput), and keeps every other key. The text box's
+-- own OnEnterPressed also runs for that key, and does nothing then. The
+-- secure button's PostClick sends the key to the core. (The use key was
+-- tested in the game, see issue #7.)
 --
 -- Combat: override bindings and keyboard propagation cannot change in
 -- combat, so a binding left behind would keep the player's Enter or use key
@@ -520,22 +526,25 @@ end
 -- the player's key bindings while they type. Seek sets them only outside the
 -- lockdown, and clears them on PLAYER_REGEN_DISABLED, which comes just
 -- before the lockdown starts. In combat, the list works from the text box,
--- as without use actions, the use key reaches the core from the text box's
--- OnEnterPressed, and the core shows use actions as blocked.
+-- as without secure actions, Enter and the use key reach the core from the
+-- text box's OnEnterPressed, and the core shows use actions as blocked. A
+-- show action that runs through a secure button then does nothing (see
+-- ClickTalentButton in adapters/wow/Actions.lua).
 local keys = CreateFrame("Frame", nil, frame)
 keys:SetAllPoints()
 keys:EnableKeyboard(false)
 
 local listKeys = false -- `keys` has the keyboard
 
--- The key bindings that click the secure button: Enter, in the action
--- list, and the use key, on the results. Each has its key chords and the
--- key that the core gets once the button has run (ns.OnUseButtonClicked).
+-- The key bindings that click a secure button: Enter, and the use key. Each
+-- has its key chords and the core's name of the key, which also names its
+-- secure button (ns.SecureButtonName), and which the core gets once the
+-- button has run (ns.OnSecureButtonClicked).
 local ENTER_BINDING = { chords = { "ENTER", "NUMPADENTER" }, coreKey = "ENTER" }
 local USE_KEY_BINDING = { chords = USE_KEY.chords, coreKey = "USE" }
 
--- The key binding that is set now: ENTER_BINDING, USE_KEY_BINDING, or nil.
-local buttonBinding = nil
+-- Whether each key binding is set now, by its core key ("ENTER", "USE").
+local bound = { ENTER = false, USE = false }
 
 -- True from PLAYER_REGEN_DISABLED to PLAYER_REGEN_ENABLED. The lockdown
 -- itself starts just after the first and ends just before the second; Seek
@@ -548,22 +557,25 @@ local function IsUseKey(chord)
 end
 
 -- Whether `binding` is set now and a key chord is one of its keys, so that
--- the key clicks the secure button.
+-- the key clicks a secure button.
 local function ClicksButton(binding, chord)
-  return buttonBinding == binding and tContains(binding.chords, chord)
+  return bound[binding.coreKey] and tContains(binding.chords, chord)
 end
 
--- Sets a key binding (see buttonBinding) that clicks the secure button, or
--- clears the bindings for nil. Never in the lockdown.
-local function BindKeys(binding)
-  if binding == buttonBinding or InCombatLockdown() then
+-- Sets the key bindings that click the secure buttons: Enter's when
+-- `enter`, the use key's when `useKey`; clears the others. Never in the
+-- lockdown.
+local function BindKeys(enter, useKey)
+  if (bound.ENTER == enter and bound.USE == useKey) or InCombatLockdown() then
     return
   end
   ClearOverrideBindings(keys)
-  for _, chord in ipairs(binding and binding.chords or {}) do
-    SetOverrideBindingClick(keys, true, chord, ns.USE_BUTTON_NAME, "LeftButton")
+  for _, binding in ipairs({ enter and ENTER_BINDING, useKey and USE_KEY_BINDING }) do
+    for _, chord in ipairs(binding and binding.chords or {}) do
+      SetOverrideBindingClick(keys, true, chord, ns.SecureButtonName(binding.coreKey), "LeftButton")
+    end
   end
-  buttonBinding = binding
+  bound.ENTER, bound.USE = enter, useKey
 end
 
 -- The text box keeps every key: none goes on to the key bindings. Never in
@@ -594,69 +606,81 @@ local function SelectedAction(view)
   end
 end
 
--- Whether Enter would click the secure button: the selected action is a use
--- action that combat does not block and that the action adapter has
--- prepared.
-local function UseActionReady(action)
-  return action ~= nil and action.type == "use" and not action.blocked
-    and ns.PreparedUseAction() == action.id
-end
-
--- Enter, from the text box or the list keys, when it does not click the
--- secure button. In the action list, a use action that runs through that
--- button (the core asked the action adapter for it, so combat does not
--- block it) runs only from there: from here, the core would close the bar
--- and nothing would run, so Enter does nothing. Every other action goes to
--- the core: a show action, a use action that the action adapter runs
--- itself, and a blocked one, which the core does not run. On the results,
--- Enter runs the main action, a show action.
-local function PressEnter()
-  if session:View().actionList and ns.UseButtonRequested() then
-    return
-  end
-  Render(session:PressKey("ENTER"))
-end
-
--- The use key, from the text box, when it does not click the secure button.
--- The core asked the action adapter for the selected result's first use
--- action, unless combat blocks it. When that runs through the secure
--- button, it runs only from there: from here, the core would close the bar
--- and nothing would run, so the use key does nothing. Otherwise the use
--- key goes to the core: it runs a use action that the action adapter runs
--- itself (a quest's focus), does nothing on a result with no use action,
--- and in combat blocks the use action and marks the result. The text box
--- can get the use key after the secure button has run and closed the bar;
--- then it does nothing either.
-local function PressUseKey()
-  if not session:View().open or ns.UseButtonRequested() then
-    return
-  end
-  Render(session:PressKey("USE"))
+-- Whether Enter in the action list would click Enter's secure button: the
+-- selected action is not blocked in combat, and the action adapter has
+-- prepared it.
+local function ListActionReady(action)
+  return action ~= nil and not action.blocked and ns.PreparedSecureAction("ENTER") == action.id
 end
 
 -- Takes or gives back the keyboard for the action list, and binds the keys
--- that click the secure button, as the view says.
+-- that click the secure buttons, as the view says.
 local function RenderKeys(view)
   local outsideCombat = not inCombat and not InCombatLockdown()
+  local boxBindings = false -- the text box passes a key on to a binding
   if view.open and view.actionList and outsideCombat then
     -- The list keys first, so that the text box's lost focus does not close
     -- the bar (see OnEditFocusLost).
     keys:EnableKeyboard(true)
     listKeys = true
     box:ClearFocus()
-    BindKeys(UseActionReady(SelectedAction(view)) and ENTER_BINDING or nil)
+    BindKeys(ListActionReady(SelectedAction(view)), false)
   else
     LeaveListKeys(view.open)
     -- With the action list closed, the core prepares the selected result's
-    -- first use action, if it has one. The use key works only while the
-    -- text box has the focus.
-    local useKeyReady = view.open and not view.actionList and outsideCombat and box:HasFocus()
-      and ns.PreparedUseAction() ~= nil
-    BindKeys(useKeyReady and USE_KEY_BINDING or nil)
+    -- main action and first use action, when they need it. The keys work
+    -- only while the text box has the focus.
+    local ready = view.open and not view.actionList and outsideCombat and box:HasFocus()
+    local enter = ready and ns.PreparedSecureAction("ENTER") ~= nil
+    local useKey = ready and ns.PreparedSecureAction("USE") ~= nil
+    BindKeys(enter, useKey)
+    boxBindings = enter or useKey
   end
-  if buttonBinding ~= USE_KEY_BINDING then
+  if not boxBindings then
     KeepAllKeys()
   end
+end
+
+-- Enter, from the text box or the list keys, when it does not click a
+-- secure button. The core asked the action adapter for the action that
+-- Enter runs, unless combat blocks it or it needs no preparing: the
+-- selected action in the action list, or on the results the selected
+-- result's main action. When that runs through Enter's secure button, it
+-- runs only from there: from here, the core would close the bar and
+-- nothing would run, so Enter does nothing. Then the button was not ready
+-- for this press (after a /reload in combat, it is set up only when combat
+-- ends); Enter gets the keys ready, so that the next Enter clicks it.
+-- Every other action goes to the core: a show action that the action
+-- adapter runs itself, a use action that it runs itself, and a blocked
+-- one, which the core does not run. The text box can get Enter after the
+-- secure button has run and closed the bar; then it does nothing either.
+local function PressEnter()
+  local view = session:View()
+  if not view.open then
+    return
+  end
+  if ns.SecureButtonRequested("ENTER") then
+    RenderKeys(view)
+    return
+  end
+  Render(session:PressKey("ENTER"))
+end
+
+-- The use key, from the text box, when it does not click a secure button.
+-- The core asked the action adapter for the selected result's first use
+-- action, unless combat blocks it. When that runs through the use key's
+-- secure button, it runs only from there: from here, the core would close
+-- the bar and nothing would run, so the use key does nothing. Otherwise the
+-- use key goes to the core: it runs a use action that the action adapter
+-- runs itself (a quest's focus), does nothing on a result with no use
+-- action, and in combat blocks the use action and marks the result. The
+-- text box can get the use key after the secure button has run and closed
+-- the bar; then it does nothing either.
+local function PressUseKey()
+  if not session:View().open or ns.SecureButtonRequested("USE") then
+    return
+  end
+  Render(session:PressKey("USE"))
 end
 
 -- Shows a view state from the core. The tooltip comes last, once the
@@ -712,11 +736,12 @@ end)
 
 -- Enter runs the selected result's main action, or the selected action
 -- when the action list is open, and closes the bar; with no results, or on
--- a blocked action, it does nothing. The core decides (see PressEnter for
--- use actions); the handler also keeps the text box from losing focus on
--- its own. With the use key's modifier held, this is the use key, which
--- never runs Enter's action: it goes to the secure button through its key
--- binding, or to the core (see PressUseKey).
+-- a blocked action, it does nothing. It goes to a secure button through
+-- its key binding, or to the core, which decides (see PressEnter); the
+-- handler also keeps the text box from losing focus on its own. With the
+-- use key's modifier held, this is the use key, which never runs Enter's
+-- action: it goes to a secure button through its key binding, or to the
+-- core (see PressUseKey).
 box:SetScript("OnEnterPressed", function()
   if USE_KEY.ModifierDown() then
     PressUseKey()
@@ -733,21 +758,21 @@ box:SetScript("OnTabPressed", function()
 end)
 
 -- While the text box has focus, key bindings do not fire. Catch the Seek
--- binding's key here, so the same key also closes the bar. The use key goes
--- on to its key binding while that is set (see "Keys for use actions"
--- above); every other key stays in the text box.
+-- binding's key here, so the same key also closes the bar. Enter and the
+-- use key go on to their key bindings while these are set (see "Keys for
+-- secure actions" above); every other key stays in the text box.
 box:SetScript("OnKeyDown", function(self, key)
   local chord = CreateKeyChordStringUsingMetaKeyState(key)
   if not InCombatLockdown() then
-    self:SetPropagateKeyboardInput(ClicksButton(USE_KEY_BINDING, chord))
+    self:SetPropagateKeyboardInput(ClicksButton(ENTER_BINDING, chord) or ClicksButton(USE_KEY_BINDING, chord))
   end
   if GetBindingAction(chord) == "SEEK_TOGGLE" then
     ns.ToggleSearchBar()
   end
 end)
 
--- The text box gained the focus: set the use key's binding (see "The use
--- key" above). The template's own focus scripts stay.
+-- The text box gained the focus: set the key bindings on the results (see
+-- "The results" above). The template's own focus scripts stay.
 box:HookScript("OnEditFocusGained", function()
   if frame:IsShown() then
     RenderKeys(session:View())
@@ -757,7 +782,7 @@ end)
 -- The text box lost the focus while the bar is open, and not to the list
 -- keys: the player clicked outside the bar (on the game world, for
 -- example). Close the bar, like a command palette in other apps; the Seek
--- key opens it again. Closing also clears the use key's binding.
+-- key opens it again. Closing also clears the key bindings.
 local closedByLostFocusAt
 box:HookScript("OnEditFocusLost", function()
   if frame:IsShown() and not listKeys then
@@ -784,7 +809,7 @@ keys:SetScript("OnKeyDown", function(self, key)
   end
   local chord = CreateKeyChordStringUsingMetaKeyState(key)
   if ClicksButton(ENTER_BINDING, chord) then
-    -- On to the override binding, which clicks the secure button.
+    -- On to the override binding, which clicks Enter's secure button.
     self:SetPropagateKeyboardInput(true)
     return
   end
@@ -802,12 +827,13 @@ keys:SetScript("OnKeyDown", function(self, key)
   end
 end)
 
--- The secure button has run the prepared use action (adapters/wow/
--- Actions.lua): the core runs the key that clicked it, Enter in the action
--- list or the use key on the results, which closes the bar.
-function ns.OnUseButtonClicked()
-  if buttonBinding then
-    Render(session:PressKey(buttonBinding.coreKey))
+-- The secure button of `coreKey` ("ENTER" or "USE") has run its prepared
+-- action (adapters/wow/Actions.lua): the core runs that key, Enter in the
+-- action list or on the results, or the use key on the results, which
+-- closes the bar.
+function ns.OnSecureButtonClicked(coreKey)
+  if bound[coreKey] then
+    Render(session:PressKey(coreKey))
   end
 end
 
@@ -821,7 +847,7 @@ combatEvents:SetScript("OnEvent", function(_, event)
   if event == "PLAYER_REGEN_DISABLED" then
     inCombat = true
     LeaveListKeys(frame:IsShown())
-    BindKeys(nil)
+    BindKeys(false, false)
     KeepAllKeys()
   else
     inCombat = false

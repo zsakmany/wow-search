@@ -15,8 +15,9 @@ local _, ns = ...
 
 -- Each setting: its default, and the lowest and highest value (for a
 -- number) or the values it can have (for a choice); a setting with a
--- true or false default is a switch. A changed default here
--- reaches every player who has not changed the setting (ADR 0004).
+-- true or false default is a switch, and one with a table default is a
+-- set of names ({ [name] = true }). A changed default here reaches every
+-- player who has not changed the setting (ADR 0004).
 ns.settings = {
   -- How many result rows the search bar shows at once, and how many
   -- recently picked things the empty search bar shows.
@@ -24,9 +25,10 @@ ns.settings = {
   -- Where the search bar shows the WoW tooltip of the selected
   -- result: to its right, to its left, or nowhere.
   tooltipSide = { default = "right", values = { "right", "left", "off" } },
-  -- Whether search shows the items in the bags of the player's other
-  -- characters (CharacterBags.lua).
-  otherCharactersBags = { default = true },
+  -- The other characters whose items search does not show (hidden
+  -- characters, see GLOSSARY.md; CharacterBags.lua), by owner
+  -- ("Name-Realm"). The default hides none.
+  hiddenCharacters = { default = {} },
   -- Whether Seek's minimap icon shows at the edge of the minimap.
   minimapIcon = { default = true },
 }
@@ -39,7 +41,8 @@ function ns.SetSettings(settings)
 end
 
 -- A setting's value: the adapter's, or the default when no adapter is
--- plugged in or it gives nil or a value of another type.
+-- plugged in or it gives nil or a value of another type. The core only
+-- reads a set of names; it never changes it (it can be the default).
 function ns.Setting(name)
   local default = ns.settings[name].default
   local value = adapter and adapter:Get(name)

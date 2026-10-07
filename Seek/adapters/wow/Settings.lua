@@ -18,13 +18,17 @@
 -- The character switch has no default (Settings.CannotDefault), so Defaults
 -- leaves it as it is.
 --
--- Under "Show other characters' bags", the button "Remove a character…"
--- removes another character's saved bags (a removed character, see
--- GLOSSARY.md; core/CharacterBags.lua), with its explanation under it. It is
--- not a setting: nothing of it is saved in the settings, and Defaults does
--- not touch it. A click opens the game's menu (Blizzard_Menu) of the saved
--- characters, made anew on each click, and a click on a name asks first in
--- Seek's own dialog (adapters/wow/RemoveCharacterDialog.lua).
+-- The button "Other characters…" shows or hides each other character (a
+-- hidden character, see GLOSSARY.md; core/CharacterBags.lua), with its
+-- explanation under it. A click opens the game's menu (Blizzard_Menu) with
+-- a checkbox for each other character whose bags Seek keeps, made anew on
+-- each click: checked is shown. A checkbox's click keeps the menu open
+-- (Blizzard_Menu's checkboxes answer with MenuResponse.Refresh, which
+-- draws them again). The hidden characters are a setting of the store, a
+-- set of owners, so they follow the character switch. The menu is Seek's
+-- own and changes the store itself; so that the page's Defaults button
+-- shows all characters again, the page also has a proxy setting with no
+-- control for them (HiddenCharactersSetting).
 --
 -- Taint: the page is built only with the Settings API's own calls, and
 -- Seek never writes into the Options window's frames (issue #25). The
@@ -34,18 +38,20 @@
 -- initializer. The page's list calls each row's initializer only through
 -- securecallfunction (Blizzard_SettingsList.lua), so Seek's code there does
 -- not taint the list. The menu system is made for addons' menus
--- (Blizzard_Menu's guide, "Taint"), but one write of it is Seek's: when
--- the menu opens from Seek's click, it stops the Options window's list from
--- scrolling under it (MenuManagerMixin:DisableScrollableRegions, the list's
--- SetScrollAllowed). Closing the menu by a pick, a click elsewhere, or
--- Escape runs in Blizzard's own code and allows the scrolling again
--- cleanly. Only when the Options window closes while the menu is still
--- open does that flag stay written by Seek; the list's scrolling is not
--- protected, so it should cost nothing. The game test of #45 checks it.
+-- (Blizzard_Menu's guide, "Taint"): it calls Seek's checkbox functions only
+-- through securecallfunction (Pick, and the refresh after it), but one
+-- write of it is Seek's: when the menu opens from Seek's click, it stops
+-- the Options window's list from scrolling under it
+-- (MenuManagerMixin:DisableScrollableRegions, the list's SetScrollAllowed).
+-- Closing the menu by a click elsewhere or Escape runs in Blizzard's own
+-- code and allows the scrolling again cleanly. Only when the Options window
+-- closes while the menu is still open does that flag stay written by Seek;
+-- the list's scrolling is not protected, so it should cost nothing. The
+-- game test of #45 checks it.
 --
--- Combat: removing a character saves at once, but its items leave the
--- results only when combat ends, when Seek reads the other characters'
--- bags again (ADR 0002).
+-- Combat: hiding or showing a character saves at once, but its items leave
+-- or come back only when combat ends, when Seek reads the other
+-- characters' bags again (ADR 0002).
 local addonName, ns = ...
 
 local L = ns.L
@@ -55,7 +61,7 @@ local page -- Seek's page in the Options window
 
 -- Blizzard's setting objects for the settings that the character switch
 -- changes: the visible results slider, the tooltip side dropdown, and the
--- other characters' bags and minimap icon checkboxes.
+-- minimap icon checkbox.
 local pageSettings = {}
 
 ns.SetSettings({
@@ -106,43 +112,79 @@ local function StoreSetting(variable, name, label)
   return setting
 end
 
--- The menu of the "Remove a character…" button: the other characters whose
--- bags Seek keeps, by name, read anew on each click. A click on a name asks
--- first (adapters/wow/RemoveCharacterDialog.lua), and closes the menu.
-local function RemoveCharacterMenu(_, root)
+-- Whether the other character `owner` is shown: its checkbox in the menu
+-- of the "Other characters…" button.
+local function IsShown(owner)
+  return not store:Get("hiddenCharacters")[owner]
+end
+
+-- Shows the other character `owner` if it is hidden, else hides it: a
+-- click on its checkbox.
+local function ToggleShown(owner)
+  local hidden = store:Get("hiddenCharacters") -- the store's copy
+  if hidden[owner] then
+    hidden[owner] = nil
+  else
+    hidden[owner] = true
+  end
+  store:Set("hiddenCharacters", hidden)
+  Save()
+end
+
+-- The menu of the "Other characters…" button: a checkbox for each other
+-- character whose bags Seek keeps, by shown name, in name order, read anew
+-- on each click (see the top of this file).
+local function OtherCharactersMenu(_, root)
   local characters = ns.OtherCharacters()
   if #characters == 0 then
-    root:CreateTitle(L.SETTING_REMOVE_CHARACTER_NONE)
+    root:CreateTitle(L.SETTING_OTHER_CHARACTERS_NONE)
     return
   end
   for _, character in ipairs(characters) do
-    root:CreateButton(character.shownName, function()
-      ns.ConfirmRemoveCharacter(character)
-    end)
+    root:CreateCheckbox(character.shownName, IsShown, ToggleShown, character.owner)
   end
 end
 
--- The "Remove a character…" button and its explanation under it (see the
+-- The "Other characters…" button and its explanation under it (see the
 -- top of this file). The button has no name, so it starts where the other
 -- rows' names start, and Seek's game option source leaves it out (rows
 -- with no name). Its text is in the Options window's search
 -- (addSearchTags).
-local function AddRemoveCharacter(layout)
-  local button = CreateSettingsButtonInitializer("", L.SETTING_REMOVE_CHARACTER, function(self)
-    MenuUtil.CreateContextMenu(self, RemoveCharacterMenu)
+local function AddOtherCharacters(layout)
+  local button = CreateSettingsButtonInitializer("", L.SETTING_OTHER_CHARACTERS, function(self)
+    MenuUtil.CreateContextMenu(self, OtherCharactersMenu)
   end, nil, true)
   layout:AddInitializer(button)
 
   local explanation = Settings.CreateElementInitializer("SeekSettingsTextTemplate", {})
   function explanation.InitFrame(_, frame)
-    frame.Text:SetText(L.SETTING_REMOVE_CHARACTER_EXPLANATION)
+    frame.Text:SetText(L.SETTING_OTHER_CHARACTERS_EXPLANATION)
   end
   layout:AddInitializer(explanation)
 end
 
+-- A proxy setting on the page, with no control, for the page's Defaults
+-- button: whether any other character is hidden. Defaults sets it to its
+-- default, false, and the store then shows all characters again. Nothing
+-- else sets it. Being a setting with no row, it is not in the Options
+-- window's search, nor in Seek's game option source.
+local function HiddenCharactersSetting()
+  Settings.RegisterProxySetting(page, "SEEK_HIDDEN_CHARACTERS", Settings.VarType.Boolean,
+    L.SETTING_OTHER_CHARACTERS, false,
+    function()
+      return next(store:Get("hiddenCharacters")) ~= nil
+    end,
+    function(anyHidden)
+      if not anyHidden then
+        store:Set("hiddenCharacters", {})
+        Save()
+      end
+    end)
+end
+
 -- The page: the character switch, the visible results slider, the tooltip
--- side dropdown, the other characters' bags checkbox with the "Remove a
--- character…" button, and the minimap icon checkbox.
+-- side dropdown, the "Other characters…" button, and the minimap icon
+-- checkbox.
 local function RegisterPage()
   local layout
   page, layout = Settings.RegisterVerticalLayoutCategory(L.NAME)
@@ -175,10 +217,8 @@ local function RegisterPage()
   local tooltipSideSetting = StoreSetting("SEEK_TOOLTIP_SIDE", "tooltipSide", L.SETTING_TOOLTIP_SIDE)
   Settings.CreateDropdown(page, tooltipSideSetting, TooltipSideChoices, L.SETTING_TOOLTIP_SIDE_TOOLTIP)
 
-  local otherCharactersBagsSetting = StoreSetting("SEEK_OTHER_CHARACTERS_BAGS", "otherCharactersBags",
-    L.SETTING_OTHER_CHARACTERS_BAGS)
-  Settings.CreateCheckbox(page, otherCharactersBagsSetting, L.SETTING_OTHER_CHARACTERS_BAGS_TOOLTIP)
-  AddRemoveCharacter(layout)
+  AddOtherCharacters(layout)
+  HiddenCharactersSetting()
 
   local minimapIconSetting = StoreSetting("SEEK_MINIMAP_ICON", "minimapIcon", L.SETTING_MINIMAP_ICON)
   Settings.CreateCheckbox(page, minimapIconSetting, L.SETTING_MINIMAP_ICON_TOOLTIP)
@@ -207,8 +247,19 @@ events:RegisterEvent("ADDON_LOADED")
 events:SetScript("OnEvent", function(self, _, name)
   if name == addonName then
     self:UnregisterEvent("ADDON_LOADED")
+    -- The store needs the other characters that Seek knows, for saved
+    -- settings from before hidden characters (core/SettingsStore.lua). The
+    -- core loads them when it starts; Storage.lua starts it too, and only
+    -- the first call does, whichever frame gets ADDON_LOADED first.
+    ns.Start()
+    local otherCharacters = {}
+    for i, character in ipairs(ns.OtherCharacters()) do
+      otherCharacters[i] = character.owner
+    end
     store = ns.NewSettingsStore(ns.settings, { account = SeekSettings, character = SeekCharacterSettings },
-      ns.SettingChanged)
+      ns.SettingChanged, otherCharacters)
+    -- Saved at once, so that the old setting's conversion is done only once.
+    Save()
     -- The core used the defaults until now; tell it the loaded values.
     for setting in pairs(ns.settings) do
       ns.SettingChanged(setting)

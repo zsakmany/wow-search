@@ -42,7 +42,6 @@ adapters\wow\Character.lua
 adapters\wow\Storage.lua
 adapters\wow\SettingsText.xml
 adapters\wow\Settings.lua
-adapters\wow\RemoveCharacterDialog.lua
 adapters\wow\Clock.lua
 adapters\wow\Scheduler.lua
 adapters\wow\Actions.lua

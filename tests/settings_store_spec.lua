@@ -7,15 +7,18 @@
 local load_core = require("tests.load_core")
 
 -- The settings as an older and a later version of Seek define them: the
--- later version has a new default.
+-- later version has a new default. The hidden characters are a set of
+-- names.
 local SIDES = { "right", "left", "off" }
 local DEFINITIONS = {
   visibleResults = { default = 8, min = 3, max = 15 },
   tooltipSide = { default = "right", values = SIDES },
+  hiddenCharacters = { default = {} },
 }
 local LATER_DEFINITIONS = {
   visibleResults = { default = 10, min = 3, max = 15 },
   tooltipSide = { default = "left", values = SIDES },
+  hiddenCharacters = { default = {} },
 }
 
 describe("the settings store", function()
@@ -26,12 +29,13 @@ describe("the settings store", function()
     changes = {}
   end)
 
-  -- A store with this saved data (nil: nothing saved yet). It writes down
-  -- each setting that it says has changed.
-  local function NewStore(saved, definitions)
+  -- A store with this saved data (nil: nothing saved yet), and the other
+  -- characters whose bags Seek keeps (none when nil). It writes down each
+  -- setting that it says has changed.
+  local function NewStore(saved, definitions, otherCharacters)
     return ns.NewSettingsStore(definitions or DEFINITIONS, saved or {}, function(name)
       changes[#changes + 1] = name
-    end)
+    end, otherCharacters or {})
   end
 
   describe("saving", function()
@@ -84,6 +88,40 @@ describe("the settings store", function()
       assert.are.equal("left", NewStore(store:Saved(), LATER_DEFINITIONS):Get("tooltipSide"))
     end)
 
+    it("saves a set of names only when it is not empty, and keeps it over a reload", function()
+      local store = NewStore()
+      store:Set("hiddenCharacters", { ["Bob-Stormrage"] = true })
+      assert.are.same({ ["Bob-Stormrage"] = true }, store:Get("hiddenCharacters"))
+      assert.are.same({ hiddenCharacters = { ["Bob-Stormrage"] = true } }, store:Saved().account.values)
+      assert.are.same({ ["Bob-Stormrage"] = true }, NewStore(store:Saved()):Get("hiddenCharacters"))
+      store:Set("hiddenCharacters", {})
+      assert.are.same({}, store:Get("hiddenCharacters"))
+      assert.are.same({}, store:Saved().account.values)
+    end)
+
+    it("keeps its own copy of a set: changing the set that Set got or Get gave changes nothing", function()
+      local store = NewStore()
+      local hidden = { ["Bob-Stormrage"] = true }
+      store:Set("hiddenCharacters", hidden)
+      hidden["Carol-ArgentDawn"] = true
+      store:Get("hiddenCharacters")["Dave-Stormrage"] = true
+      assert.are.same({ ["Bob-Stormrage"] = true }, store:Get("hiddenCharacters"))
+      -- Also the default set.
+      local fresh = NewStore()
+      fresh:Get("hiddenCharacters")["Dave-Stormrage"] = true
+      assert.are.same({}, fresh:Get("hiddenCharacters"))
+      assert.are.same({}, DEFINITIONS.hiddenCharacters.default)
+    end)
+
+    it("tells about a set's change only when its names change", function()
+      local store = NewStore()
+      store:Set("hiddenCharacters", { ["Bob-Stormrage"] = true })
+      store:Set("hiddenCharacters", { ["Bob-Stormrage"] = true })
+      store:Set("hiddenCharacters", { ["Carol-ArgentDawn"] = true })
+      store:Set("hiddenCharacters", {})
+      assert.are.same({ "hiddenCharacters", "hiddenCharacters", "hiddenCharacters" }, changes)
+    end)
+
     it("tells about a change only when the value changes", function()
       local store = NewStore()
       store:Set("visibleResults", 12)
@@ -128,6 +166,15 @@ describe("the settings store", function()
       assert.are.same({ "tooltipSide" }, changes)
       local saved = { account = { version = 1, values = { tooltipSide = "top" } } }
       assert.are.equal("right", NewStore(saved):Get("tooltipSide"))
+    end)
+
+    it("keeps only the names of a saved set of names", function()
+      local saved = { account = { version = 1, values = {
+        hiddenCharacters = { ["Bob-Stormrage"] = true, [3] = true, ["Carol-ArgentDawn"] = "yes" },
+      } } }
+      assert.are.same({ ["Bob-Stormrage"] = true }, NewStore(saved):Get("hiddenCharacters"))
+      saved = { account = { version = 1, values = { hiddenCharacters = "Bob-Stormrage" } } }
+      assert.are.same({}, NewStore(saved):Get("hiddenCharacters"))
     end)
 
     it("ignores saved settings of an unknown version", function()
@@ -222,12 +269,45 @@ describe("the settings store", function()
       assert.are.same({ visibleResults = 12 }, store:Saved().account.values)
     end)
 
+    it("turned on and off, changes the set of names in use", function()
+      local store = Login(nil)
+      store:Set("hiddenCharacters", { ["Bob-Stormrage"] = true })
+      store:SetCharacterOnly(true)
+      assert.are.same({ ["Bob-Stormrage"] = true }, store:Get("hiddenCharacters"))
+      store:Set("hiddenCharacters", { ["Carol-ArgentDawn"] = true })
+      changes = {}
+
+      store:SetCharacterOnly(false)
+      assert.are.same({ ["Bob-Stormrage"] = true }, store:Get("hiddenCharacters"))
+      assert.are.same({ "hiddenCharacters" }, changes)
+      store = Login(Logout(store))
+      store:SetCharacterOnly(true)
+      assert.are.same({ ["Carol-ArgentDawn"] = true }, store:Get("hiddenCharacters"))
+    end)
+
     describe("the Defaults button", function()
       -- Blizzard's Defaults button sets each setting on the page to its
-      -- default.
+      -- default; the hidden characters too (Seek's settings adapter has a
+      -- setting without a control for them).
       local function PressDefaults(store)
         store:Set("visibleResults", DEFINITIONS.visibleResults.default)
+        store:Set("hiddenCharacters", DEFINITIONS.hiddenCharacters.default)
       end
+
+      it("shows all characters again, and saves no set of names", function()
+        local store = Login(nil)
+        store:Set("hiddenCharacters", { ["Bob-Stormrage"] = true })
+        store:SetCharacterOnly(true)
+        store:Set("hiddenCharacters", { ["Carol-ArgentDawn"] = true })
+        PressDefaults(store)
+        assert.are.same({}, store:Get("hiddenCharacters"))
+        assert.are.same({}, store:Saved().character.values)
+        store:SetCharacterOnly(false)
+        assert.are.same({ ["Bob-Stormrage"] = true }, store:Get("hiddenCharacters"))
+        PressDefaults(store)
+        assert.are.same({}, store:Get("hiddenCharacters"))
+        assert.are.same({}, store:Saved().account.values)
+      end)
 
       it("with the switch on, resets only the character's settings", function()
         local store = Login(nil)
@@ -248,6 +328,41 @@ describe("the settings store", function()
         store:SetCharacterOnly(true)
         assert.are.equal(5, store:Get("visibleResults"))
       end)
+    end)
+  end)
+
+  describe("saved data with the old setting \"Show other characters' bags\"", function()
+    local OTHERS = { "Bob-Stormrage", "Carol-ArgentDawn" }
+
+    it("off, hides each other character that Seek knows now, in the account's and the character's settings", function()
+      local saved = {
+        account = { version = 1, values = { otherCharactersBags = false, visibleResults = 12 } },
+        character = { version = 1, characterOnly = true, values = { otherCharactersBags = false } },
+      }
+      local store = NewStore(saved, DEFINITIONS, OTHERS)
+      local hidden = { ["Bob-Stormrage"] = true, ["Carol-ArgentDawn"] = true }
+      assert.are.same(hidden, store:Get("hiddenCharacters"))
+      assert.are.same({ hiddenCharacters = hidden }, store:Saved().character.values)
+      assert.are.same({ visibleResults = 12, hiddenCharacters = hidden }, store:Saved().account.values)
+    end)
+
+    it("on, changes nothing", function()
+      local saved = { account = { version = 1, values = { otherCharactersBags = true } } }
+      local store = NewStore(saved, DEFINITIONS, OTHERS)
+      assert.are.same({}, store:Get("hiddenCharacters"))
+      assert.are.same({}, store:Saved().account.values)
+    end)
+
+    it("off, with no other character known, saves nothing", function()
+      local saved = { account = { version = 1, values = { otherCharactersBags = false } } }
+      assert.are.same({}, NewStore(saved, DEFINITIONS, {}):Saved().account.values)
+    end)
+
+    it("off, is gone once saved: a character that Seek sees later is shown", function()
+      local saved = { account = { version = 1, values = { otherCharactersBags = false } } }
+      local store = NewStore(NewStore(saved, DEFINITIONS, OTHERS):Saved(), DEFINITIONS,
+        { "Bob-Stormrage", "Carol-ArgentDawn", "Dave-Stormrage" })
+      assert.are.same({ ["Bob-Stormrage"] = true, ["Carol-ArgentDawn"] = true }, store:Get("hiddenCharacters"))
     end)
   end)
 end)

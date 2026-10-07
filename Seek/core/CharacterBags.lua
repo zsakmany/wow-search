@@ -13,16 +13,14 @@
 -- logged in once with this version of Seek. The entries have no `inBags`
 -- fact, so they have no actions: they are faded results (see GLOSSARY.md).
 --
--- The setting "Show other characters' bags" (otherCharactersBags): off,
--- the source gives no entries, but Seek still keeps the current
--- character's bags. A change of the setting reads the source again, so it
--- takes effect without a reload (in combat, when combat ends: ADR 0002).
---
--- Seek keeps a character's bags until the player removes the character on
--- Seek's settings page (a removed character, see GLOSSARY.md), also while
--- the setting is off. Its items then leave the results, the same way: the
--- source is read again. It comes back when it logs in again. Seek never
--- removes a character by itself.
+-- The player can hide another character (a hidden character, see
+-- GLOSSARY.md) on Seek's settings page: the setting hiddenCharacters, a set
+-- of owners. The source leaves out a hidden character's items, but Seek
+-- still keeps its bags, which follow its logins, so showing it again brings
+-- its items back. A character that Seek sees for the first time is shown.
+-- A change of the setting reads the source again, so it takes effect
+-- without a reload (in combat, when combat ends: ADR 0002). Seek never
+-- deletes a character's bags.
 local _, ns = ...
 
 -- Seek's bag source registers with this id.
@@ -86,12 +84,13 @@ end
 local function GetEntries()
   local entries = {}
   local current = ns.CurrentCharacter()
-  if not current or not ns.Setting("otherCharactersBags") then
+  if not current then
     return entries
   end
+  local hidden = ns.Setting("hiddenCharacters")
   local owners = {}
   for owner in pairs(bagsByOwner) do
-    if owner ~= current then
+    if owner ~= current and not hidden[owner] then
       owners[#owners + 1] = owner
     end
   end
@@ -117,15 +116,19 @@ end
 ns.api.RegisterSource({ id = SOURCE_ID, GetEntries = GetEntries })
 
 -- The other characters whose bags Seek keeps, for Seek's settings page,
--- where the player can remove one: a list of tables with the character's
--- `owner` ("Name-Realm") and its `shownName`, as Seek shows it
--- (ns.OwnerName), in that order. Never the current character.
+-- where the player shows or hides each one: a list of tables with the
+-- character's `owner` ("Name-Realm"), its `shownName`, as Seek shows it
+-- (ns.OwnerName), and whether it is `hidden`, in the order of the shown
+-- names. Never the current character.
 function ns.OtherCharacters()
   local characters = {}
   local current = ns.CurrentCharacter()
+  local hidden = ns.Setting("hiddenCharacters")
   for owner in pairs(bagsByOwner) do
     if owner ~= current then
-      characters[#characters + 1] = { owner = owner, shownName = ns.OwnerName(owner) }
+      characters[#characters + 1] = {
+        owner = owner, shownName = ns.OwnerName(owner), hidden = hidden[owner] == true,
+      }
     end
   end
   table.sort(characters, function(a, b)
@@ -134,19 +137,8 @@ function ns.OtherCharacters()
   return characters
 end
 
--- The player removes another character (a removed character, see
--- GLOSSARY.md), for example after deleting or renaming it, on Seek's
--- settings page: Seek no longer keeps its bags, so its items leave the
--- results. Its bags come back when it logs in again. Seek never removes a
--- character by itself.
-function ns.RemoveCharacter(owner)
-  bagsByOwner[owner] = nil
-  SaveBags()
-  ns.api.NotifyChanged(SOURCE_ID)
-end
-
 ns.WatchSettings(function(name)
-  if name == "otherCharactersBags" then
+  if name == "hiddenCharacters" then
     ns.api.NotifyChanged(SOURCE_ID)
   end
 end)

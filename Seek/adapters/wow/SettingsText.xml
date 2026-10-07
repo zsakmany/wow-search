@@ -1,5 +1,5 @@
 <!-- A row of plain text on Seek's settings page (adapters/wow/Settings.lua),
-     such as the explanation under the "Remove a character…" button. The
+     such as the explanation under the "Other characters…" button. The
      Settings API has no row for a text of more than one line, so Seek has
      its own template. Settings.lua sets the text when the row is shown.
      Like Blizzard's rows (SettingsListElementTemplate), the text starts 37

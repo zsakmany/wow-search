@@ -85,20 +85,12 @@ ns.L = {
   SETTING_TOOLTIP_SIDE_RIGHT = "Right",
   SETTING_TOOLTIP_SIDE_LEFT = "Left",
   SETTING_TOOLTIP_SIDE_OFF = "Off",
-  SETTING_OTHER_CHARACTERS_BAGS = "Show other characters' bags",
-  SETTING_OTHER_CHARACTERS_BAGS_TOOLTIP = "Search also finds the items in the bags of your other characters "
-    .. "on this account, faded, with the character's name. A character's bags show after it has logged in "
-    .. "once with Seek.",
-  -- The button under "Show other characters' bags", the explanation under
-  -- it, the button's menu when no other character is saved, and the
-  -- question before Seek removes a character; %s is the character's name
-  SETTING_REMOVE_CHARACTER = "Remove a character…",
-  SETTING_REMOVE_CHARACTER_EXPLANATION = "Seek keeps the bags of your other characters. Remove a character "
-    .. "that you deleted or renamed. It comes back if it logs in again.",
-  SETTING_REMOVE_CHARACTER_NONE = "No other characters",
-  REMOVE_CHARACTER_QUESTION = "Remove %s? Seek removes the bags it saved for this character.",
-  REMOVE_CHARACTER_YES = "Yes",
-  REMOVE_CHARACTER_NO = "No",
+  -- The button that shows or hides each other character, the explanation
+  -- under it, and its menu when Seek keeps no other character's bags
+  SETTING_OTHER_CHARACTERS = "Other characters…",
+  SETTING_OTHER_CHARACTERS_EXPLANATION = "Choose whose bags Seek shows. Hide a character that you deleted or "
+    .. "renamed, or whose items you don't need.",
+  SETTING_OTHER_CHARACTERS_NONE = "No other characters",
   SETTING_MINIMAP_ICON = "Show minimap icon",
   SETTING_MINIMAP_ICON_TOOLTIP = "Shows Seek's magnifying glass at the edge of the minimap. A left click "
     .. "on it opens or closes the search bar, and a right click opens these settings. Drag it to move it "

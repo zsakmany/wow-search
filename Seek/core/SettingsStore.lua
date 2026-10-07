@@ -9,7 +9,9 @@
 -- the code, so a changed default in a later version reaches the players
 -- who never changed it. A setting that the player puts back to its default
 -- counts as unchanged again (this is also how the page's Defaults button
--- resets it).
+-- resets it). A set of names (such as the hidden characters) is its default
+-- when it has the same names; the store keeps its own copy of each set, so
+-- that no caller can change the store's values.
 --
 -- Account and character: the settings are account-wide, until the player
 -- turns on the switch "use settings for this character only". Then all of
@@ -46,13 +48,29 @@ local function IsChoice(definition, value)
   return false
 end
 
+-- A set of names as the store keeps it: its own copy, with only the names
+-- (strings) that are in it (true).
+local function NameSet(value)
+  local set = {}
+  for name, inSet in pairs(value) do
+    if type(name) == "string" and inSet == true then
+      set[name] = true
+    end
+  end
+  return set
+end
+
 -- A setting's value as the store keeps it, or nil when `value` does not fit
 -- the setting's definition: another type than the default's, a number that
 -- is not whole or is outside the lowest and highest value, or not one of a
--- choice setting's values.
+-- choice setting's values. A set of names is copied, so that a change of
+-- the caller's table does not change the store.
 local function Valid(definition, value)
   if type(value) ~= type(definition.default) then
     return nil
+  end
+  if type(value) == "table" then
+    return NameSet(value)
   end
   if type(value) == "number" and (value % 1 ~= 0 or value < definition.min or value > definition.max) then
     return nil
@@ -65,7 +83,14 @@ end
 
 -- The changed settings from saved data of one scope, if it has the right
 -- shape: a table of values by name. Values that no longer fit are left out.
-local function LoadValues(definitions, saved)
+--
+-- Saved data from before hidden characters can have the setting
+-- otherCharactersBags ("Show other characters' bags"), which hid all other
+-- characters at once. Off, it becomes the hidden characters: each of
+-- `otherCharacters`, the other characters that Seek knows now. On (its
+-- default), nothing changes. The store does not save it again, so this
+-- happens only once.
+local function LoadValues(definitions, saved, otherCharacters)
   if type(saved) ~= "table" or saved.version ~= SAVED_VERSION or type(saved.values) ~= "table" then
     return nil
   end
@@ -73,7 +98,33 @@ local function LoadValues(definitions, saved)
   for name, definition in pairs(definitions) do
     values[name] = Valid(definition, saved.values[name])
   end
+  if saved.values.otherCharactersBags == false and values.hiddenCharacters == nil and otherCharacters[1] then
+    local hidden = {}
+    for _, owner in ipairs(otherCharacters) do
+      hidden[owner] = true
+    end
+    values.hiddenCharacters = hidden
+  end
   return values
+end
+
+-- Whether two values of a setting are the same: for a set of names, the
+-- same names.
+local function Same(a, b)
+  if type(a) ~= "table" or type(b) ~= "table" then
+    return a == b
+  end
+  for name in pairs(a) do
+    if not b[name] then
+      return false
+    end
+  end
+  for name in pairs(b) do
+    if not a[name] then
+      return false
+    end
+  end
+  return true
 end
 
 -- A value that the player set, made to fit: a number is rounded to a whole
@@ -87,7 +138,8 @@ local function Fit(definition, value)
   return value
 end
 
--- Copies a table of values.
+-- Copies a table of values. A set of names in it is not copied: the store
+-- replaces a set, but never changes one.
 local function Copy(values)
   local copy = {}
   for name, value in pairs(values) do
@@ -104,11 +156,15 @@ end
 --                character } (each nil when there is none)
 --   onChanged    called as onChanged(name) each time a setting's value
 --                changes (also when the switch changes it)
-function ns.NewSettingsStore(definitions, saved, onChanged)
-  local character = LoadValues(definitions, saved.character)
+--   otherCharacters
+--                the other characters whose bags Seek keeps now, by owner
+--                ("Name-Realm"), for saved data from before hidden
+--                characters (see LoadValues)
+function ns.NewSettingsStore(definitions, saved, onChanged, otherCharacters)
+  local character = LoadValues(definitions, saved.character, otherCharacters)
   return setmetatable({
     definitions = definitions,
-    account = LoadValues(definitions, saved.account) or {},
+    account = LoadValues(definitions, saved.account, otherCharacters) or {},
     character = character,
     characterOnly = character ~= nil and saved.character.characterOnly == true,
     onChanged = onChanged,
@@ -123,11 +179,15 @@ local function InUse(store)
   return store.account
 end
 
--- A setting's value: the player's, or its default.
+-- A setting's value: the player's, or its default. A set of names is a
+-- copy, which the caller may change.
 function SettingsStore:Get(name)
   local value = InUse(self)[name]
   if value == nil then
-    return self.definitions[name].default
+    value = self.definitions[name].default
+  end
+  if type(value) == "table" then
+    return NameSet(value)
   end
   return value
 end
@@ -141,11 +201,11 @@ function SettingsStore:Set(name, value)
   if value == nil then
     return
   end
-  if value == definition.default then
+  if Same(value, definition.default) then
     value = nil
   end
   InUse(self)[name] = value
-  if self:Get(name) ~= old then
+  if not Same(self:Get(name), old) then
     self.onChanged(name)
   end
 end
@@ -167,7 +227,7 @@ function SettingsStore:SetCharacterOnly(on)
   end
   self.characterOnly = on
   for name in pairs(self.definitions) do
-    if self:Get(name) ~= old[name] then
+    if not Same(self:Get(name), old[name]) then
       self.onChanged(name)
     end
   end

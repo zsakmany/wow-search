@@ -49,6 +49,7 @@ adapters\wow\Opening.lua
 adapters\wow\MinimapIcon.lua
 adapters\wow\SuggestedKey.lua
 adapters\wow\LongText.lua
+adapters\wow\SpellText.lua
 adapters\wow\BagSource.lua
 adapters\wow\SpellSource.lua
 adapters\wow\QuestSource.lua

@@ -71,7 +71,7 @@ describe("a talent", function()
     assert.are.same({ "Improved Fireball | Talent · 2/3" }, Search("casting"))
   end)
 
-  it("leaves out points that are not whole numbers from 0 to at least 1 possible; the talent is still found",
+  it("leaves out points that make no sense, such as 3 of 2 or 1.5; the talent is still found",
     function()
       GivenEntries({
         Talent("Arcane Focus", 2001, 4, 3),

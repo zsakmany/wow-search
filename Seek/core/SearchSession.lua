@@ -359,8 +359,9 @@ end
 --              the entry), kindLabel (the kind, with a talent's points,
 --              see KindLabel, and with the owner's name for another
 --              character's result, see OwnerText: the row's kind text),
---              spentPoints (a talent's spent points, for its tooltip's
---              rank; nil for an entry without points), faded (true for a
+--              spentPoints (a talent's spent points, for its tooltip,
+--              which shows the talent at that many points; nil for an
+--              entry without points), faded (true for a
 --              result with no actions: the search bar draws it faded),
 --              selected (true on one row),
 --              matchedLetters: the positions of the name's letters that

@@ -125,8 +125,8 @@ local function CanDo(entry, action)
 end
 
 -- All of an entry's kind's actions, the main action first: what its
--- action list shows, besides the forget action. An action is left out when the entry does not have a fact that it
--- needs.
+-- action list shows, besides the forget action. An action is left out when
+-- the entry does not have a fact that it needs.
 function ns.EntryActions(entry)
   local actions = {}
   for _, action in ipairs(ns.kinds[entry.kind].actions) do

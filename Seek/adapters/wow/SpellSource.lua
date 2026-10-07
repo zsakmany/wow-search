@@ -13,42 +13,9 @@ local SOURCE_ID = "Seek.Spells"
 local PLAYER = Enum.SpellBookSpellBank.Player
 local SPELL = Enum.SpellBookItemType.Spell
 
--- Spells whose description was empty at the last read (spell ID -> true).
--- The game may still be loading it.
-local waiting = {}
-
--- The game has loaded a spell's data or text: if Seek waits for it, read the
--- spells again. (Many spells can load in one frame; Seek reads the spellbook
--- once for all of their notices.)
-local function TextLoaded(spellID)
-  if waiting[spellID] then
-    waiting[spellID] = nil
-    Seek.NotifyChanged(SOURCE_ID)
-  end
-end
-
--- The spell's description, or nil. The description is empty until the game
--- has loaded the spell's data; then wait for it, and read again when it
--- comes (SPELL_TEXT_UPDATE below, or the spell data load). Some spells have
--- no description at all; they wait for nothing more once their data is
--- loaded.
-local function Description(spellID)
-  local description = C_Spell.GetSpellDescription(spellID)
-  if description and description ~= "" then
-    waiting[spellID] = nil
-    return ns.LongText({ description })
-  end
-  if not waiting[spellID] then
-    waiting[spellID] = true
-    local spell = Spell:CreateFromSpellID(spellID)
-    if not spell:IsSpellDataCached() then
-      spell:ContinueOnSpellLoad(function()
-        TextLoaded(spellID)
-      end)
-    end
-  end
-  return nil
-end
+-- The spell's description as long text, or nil while the game loads it;
+-- TextLoaded reads the spells again when it comes (SpellText.lua).
+local Description, TextLoaded = ns.SpellDescriptions(SOURCE_ID)
 
 local function GetEntries()
   local entries, seen = {}, {}

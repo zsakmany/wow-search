@@ -88,7 +88,7 @@ ns.kinds = {
   -- A talent (see GLOSSARY.md). Its row's kind text shows its points. No
   -- use action: Seek never spends points or changes talents. The WoW action
   -- adapter opens the talent window through a secure button, from the
-  -- player's key press (NeedsSecureButton in Actions.lua); in combat no key
+  -- player's key press (NeedsKeyPress in Actions.lua); in combat no key
   -- press reaches that button, and then the action does nothing.
   talent = {
     label = L.KIND_TALENT,

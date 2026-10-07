@@ -46,7 +46,7 @@ local function NeedsPreparing(action)
   if not action or ns.InCombat() then
     return false
   end
-  return action.type == "use" or action.type == "show" and ns.NeedsSecureButton(action)
+  return action.type == "use" or action.type == "show" and ns.NeedsKeyPress(action)
 end
 
 -- Tells the action adapter that the next press of `key` would run `action`

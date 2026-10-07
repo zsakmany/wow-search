@@ -160,7 +160,7 @@ describe("a talent's Show in talents, through the secure button", function()
     function adapter:Prepare(key, actionID, entry)
       self.prepared[key] = actionID and (actionID .. " " .. entry.name) or false
     end
-    function adapter.NeedsSecureButton(_, actionID)
+    function adapter.NeedsKeyPress(_, actionID)
       return actionID == "showInTalents"
     end
     return adapter

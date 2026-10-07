@@ -477,7 +477,7 @@ local function RenderContent(view)
   RenderActionList(view)
 end
 
--- Keys for secure actions: how Enter and the use key reach Seek's secure
+-- Keys for the secure buttons: how Enter and the use key reach Seek's secure
 -- buttons, one for each key (adapters/wow/Actions.lua).
 --
 -- While the text box has keyboard focus, no key binding fires, and some
@@ -526,10 +526,10 @@ end
 -- the player's key bindings while they type. Seek sets them only outside the
 -- lockdown, and clears them on PLAYER_REGEN_DISABLED, which comes just
 -- before the lockdown starts. In combat, the list works from the text box,
--- as without secure actions, Enter and the use key reach the core from the
+-- as without the secure buttons, Enter and the use key reach the core from the
 -- text box's OnEnterPressed, and the core shows use actions as blocked. A
 -- show action that runs through a secure button then does nothing (see
--- ClickTalentButton in adapters/wow/Actions.lua).
+-- TalentButtonAttributes in adapters/wow/Actions.lua).
 local keys = CreateFrame("Frame", nil, frame)
 keys:SetAllPoints()
 keys:EnableKeyboard(false)
@@ -648,8 +648,9 @@ end
 -- result's main action. When that runs through Enter's secure button, it
 -- runs only from there: from here, the core would close the bar and
 -- nothing would run, so Enter does nothing. Then the button was not ready
--- for this press (after a /reload in combat, it is set up only when combat
--- ends); Enter gets the keys ready, so that the next Enter clicks it.
+-- for this press, which should not happen: Seek sets it up as soon as
+-- combat allows (after a /reload in combat, when combat ends). As a safety
+-- net, Enter gets the keys ready, so that the next Enter clicks it.
 -- Every other action goes to the core: a show action that the action
 -- adapter runs itself, a use action that it runs itself, and a blocked
 -- one, which the core does not run. The text box can get Enter after the
@@ -760,7 +761,7 @@ end)
 -- While the text box has focus, key bindings do not fire. Catch the Seek
 -- binding's key here, so the same key also closes the bar. Enter and the
 -- use key go on to their key bindings while these are set (see "Keys for
--- secure actions" above); every other key stays in the text box.
+-- the secure buttons" above); every other key stays in the text box.
 box:SetScript("OnKeyDown", function(self, key)
   local chord = CreateKeyChordStringUsingMetaKeyState(key)
   if not InCombatLockdown() then

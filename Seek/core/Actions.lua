@@ -17,15 +17,15 @@
 --                             that was set up before the press, outside
 --                             combat: WoW runs using an item and casting a
 --                             spell only so, and the adapter runs the show
---                             actions that NeedsSecureButton names so,
+--                             actions that NeedsKeyPress names so,
 --                             since opening some game windows from addon
 --                             code taints them. The core calls it each
 --                             time a key's action changes, for every use
 --                             action and for the show actions that
---                             NeedsSecureButton names, and never in combat:
+--                             NeedsKeyPress names, and never in combat:
 --                             WoW lets no addon set up a secure button
 --                             then.
---   NeedsSecureButton(actionID)
+--   NeedsKeyPress(actionID)
 --                             (optional) true for a show action that the
 --                             adapter runs only from a key press on a
 --                             secure button, so the core prepares it like a
@@ -65,9 +65,9 @@ function ns.RunAction(action, entry)
 end
 
 -- Whether the action adapter runs the show action `action` only from a key
--- press on a secure button (see NeedsSecureButton above).
-function ns.NeedsSecureButton(action)
-  return adapter ~= nil and adapter.NeedsSecureButton ~= nil and adapter:NeedsSecureButton(action.id) == true
+-- press on a secure button (see NeedsKeyPress above).
+function ns.NeedsKeyPress(action)
+  return adapter ~= nil and adapter.NeedsKeyPress ~= nil and adapter:NeedsKeyPress(action.id) == true
 end
 
 -- Whether two Prepare calls are for the same action and the same thing. A

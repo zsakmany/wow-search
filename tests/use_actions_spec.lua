@@ -382,7 +382,7 @@ describe("use actions", function()
       -- The fake action adapter also says which show actions run only from
       -- a key press on a secure button: those in `secure`.
       local function GivenSecureShowActions(secure)
-        function actions.NeedsSecureButton(_, actionID)
+        function actions.NeedsKeyPress(_, actionID)
           return secure[actionID] == true
         end
       end

@@ -3,7 +3,7 @@
 -- player sees, so they also work in combat; the exceptions are the world
 -- map and the Options window, which WoW does not let addons open in combat,
 -- and the talent window, which opens through a secure button that Seek's
--- keys cannot reach in combat (see ClickTalentButton). There is no "show
+-- keys cannot reach in combat (see TalentButtonAttributes). There is no "show
 -- in spellbook": opening the spellbook from addon code taints it (issue
 -- #29); "show in talents" opens the same window, at its talents tab, from
 -- the game's own talent button. The core blocks every use action in
@@ -298,7 +298,7 @@ end
 -- from its own code: the window's OnShow then ran MultiActionBar_
 -- ShowAllGrids as Seek's code, which tainted action bar state, and the
 -- action bars hid in the next fight.
-local function ClickTalentButton()
+local function TalentButtonAttributes()
   return { type = "click", clickbutton = TalentMicroButton }
 end
 
@@ -307,7 +307,7 @@ end
 -- SecureTemplates.lua). WoW runs the first two only from Blizzard's secure
 -- code, started by a real key press or click; addon code that calls
 -- UseItemByName or CastSpellByID itself is blocked. The third would work
--- from addon code, but taints (see ClickTalentButton). So:
+-- from addon code, but taints (see TalentButtonAttributes). So:
 --   1. Prepare (below): when the core says which action a key would run
 --      next (Enter, or the use key), Seek sets the attributes of that key's
 --      secure button. Attributes of a secure button can only change outside
@@ -339,12 +339,12 @@ local ON_SECURE_BUTTON = {
   castSpell = function(gameID)
     return { type = "spell", spell = gameID }
   end,
-  showInTalents = ClickTalentButton,
+  showInTalents = TalentButtonAttributes,
 }
 
 -- Every attribute that ON_SECURE_BUTTON sets, so that a button keeps none
 -- of an earlier action's.
-local ATTRIBUTES = { "type", "item", "spell", "clickbutton" }
+local ATTRIBUTE_NAMES = { "type", "item", "spell", "clickbutton" }
 
 -- The secure buttons, by the core's name of the key that clicks them. Each
 -- has its global name, its frame, the action that the core asked for last
@@ -369,9 +369,9 @@ local function Apply(button)
     return
   end
   local requested = button.requested
-  local Attributes = requested and ON_SECURE_BUTTON[requested.id]
-  local attributes = Attributes and Attributes(requested.entry.gameID) or {}
-  for _, name in ipairs(ATTRIBUTES) do
+  local AttributesFor = requested and ON_SECURE_BUTTON[requested.id]
+  local attributes = AttributesFor and AttributesFor(requested.entry.gameID) or {}
+  for _, name in ipairs(ATTRIBUTE_NAMES) do
     button.frame:SetAttribute(name, attributes[name])
   end
   button.preparedID = attributes.type and requested.id or nil
@@ -442,7 +442,7 @@ function ns.SecureButtonRequested(key)
 end
 
 -- The key press on a secure button has already run the action. In combat,
--- no key press reaches a secure button (see ClickTalentButton): then Run
+-- no key press reaches a secure button (see TalentButtonAttributes): then Run
 -- comes alone, a use action never does (the core blocks it), and "show in
 -- talents" does nothing.
 local function AlreadyRun() end
@@ -474,7 +474,7 @@ ns.SetActionAdapter({
     button.requested = actionID and { id = actionID, entry = entry } or nil
     Apply(button)
   end,
-  NeedsSecureButton = function(_, actionID)
+  NeedsKeyPress = function(_, actionID)
     return ON_SECURE_BUTTON[actionID] ~= nil
   end,
 })

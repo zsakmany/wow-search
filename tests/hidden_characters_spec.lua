@@ -97,6 +97,14 @@ describe("a hidden character", function()
     }, alice.ns.OtherCharacters())
   end)
 
+  -- The old setting "Show other characters' bags" counted for the whole
+  -- account, so its conversion hides every character whose bags Seek keeps,
+  -- the current one too (core/SettingsStore.lua).
+  it("is in the list of every character whose bags Seek keeps, with the current character", function()
+    local alice = LogIn(carol, "Alice-Stormrage", { Item("Hearthstone", 6948, "Alice-Stormrage") })
+    assert.are.same({ "Alice-Stormrage", "Bob-Stormrage", "Carol-ArgentDawn" }, alice.ns.CharactersWithBags())
+  end)
+
   it("stays hidden after a reload", function()
     local alice = LogIn(carol, "Alice-Stormrage", {})
     Hide(alice, "Bob-Stormrage")

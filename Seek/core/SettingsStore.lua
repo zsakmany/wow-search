@@ -81,33 +81,6 @@ local function Valid(definition, value)
   return value
 end
 
--- The changed settings from saved data of one scope, if it has the right
--- shape: a table of values by name. Values that no longer fit are left out.
---
--- Saved data from before hidden characters can have the setting
--- otherCharactersBags ("Show other characters' bags"), which hid all other
--- characters at once. Off, it becomes the hidden characters: each of
--- `otherCharacters`, the other characters that Seek knows now. On (its
--- default), nothing changes. The store does not save it again, so this
--- happens only once.
-local function LoadValues(definitions, saved, otherCharacters)
-  if type(saved) ~= "table" or saved.version ~= SAVED_VERSION or type(saved.values) ~= "table" then
-    return nil
-  end
-  local values = {}
-  for name, definition in pairs(definitions) do
-    values[name] = Valid(definition, saved.values[name])
-  end
-  if saved.values.otherCharactersBags == false and values.hiddenCharacters == nil and otherCharacters[1] then
-    local hidden = {}
-    for _, owner in ipairs(otherCharacters) do
-      hidden[owner] = true
-    end
-    values.hiddenCharacters = hidden
-  end
-  return values
-end
-
 -- Whether two values of a setting are the same: for a set of names, the
 -- same names.
 local function Same(a, b)
@@ -125,6 +98,40 @@ local function Same(a, b)
     end
   end
   return true
+end
+
+-- The changed settings from saved data of one scope, if it has the right
+-- shape: a table of values by name. Values that no longer fit are left out.
+--
+-- Saved data from before hidden characters can have the setting
+-- otherCharactersBags ("Show other characters' bags"), which hid all other
+-- characters at once, on every character of the account. Off, it becomes
+-- the hidden characters: each of `knownCharacters`, every character whose
+-- bags Seek keeps now. That is the current character too, so that its
+-- items stay hidden when the player logs in on another character; the
+-- current character never sees its own items as another's, so hiding it
+-- costs nothing. On (its default), nothing changes. The store does not
+-- save it again, so this happens only once. A saved value that is the
+-- same as the default (such as an empty set) counts as not saved.
+local function LoadValues(definitions, saved, knownCharacters)
+  if type(saved) ~= "table" or saved.version ~= SAVED_VERSION or type(saved.values) ~= "table" then
+    return nil
+  end
+  local values = {}
+  for name, definition in pairs(definitions) do
+    local value = Valid(definition, saved.values[name])
+    if value ~= nil and not Same(value, definition.default) then
+      values[name] = value
+    end
+  end
+  if saved.values.otherCharactersBags == false and values.hiddenCharacters == nil and knownCharacters[1] then
+    local hidden = {}
+    for _, owner in ipairs(knownCharacters) do
+      hidden[owner] = true
+    end
+    values.hiddenCharacters = hidden
+  end
+  return values
 end
 
 -- A value that the player set, made to fit: a number is rounded to a whole
@@ -156,15 +163,16 @@ end
 --                character } (each nil when there is none)
 --   onChanged    called as onChanged(name) each time a setting's value
 --                changes (also when the switch changes it)
---   otherCharacters
---                the other characters whose bags Seek keeps now, by owner
---                ("Name-Realm"), for saved data from before hidden
---                characters (see LoadValues)
-function ns.NewSettingsStore(definitions, saved, onChanged, otherCharacters)
-  local character = LoadValues(definitions, saved.character, otherCharacters)
+--   knownCharacters
+--                (optional) every character whose bags Seek keeps now, the
+--                current one too, by owner ("Name-Realm"), for saved data
+--                from before hidden characters (see LoadValues)
+function ns.NewSettingsStore(definitions, saved, onChanged, knownCharacters)
+  knownCharacters = knownCharacters or {}
+  local character = LoadValues(definitions, saved.character, knownCharacters)
   return setmetatable({
     definitions = definitions,
-    account = LoadValues(definitions, saved.account, otherCharacters) or {},
+    account = LoadValues(definitions, saved.account, knownCharacters) or {},
     character = character,
     characterOnly = character ~= nil and saved.character.characterOnly == true,
     onChanged = onChanged,

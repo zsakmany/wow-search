@@ -247,17 +247,13 @@ events:RegisterEvent("ADDON_LOADED")
 events:SetScript("OnEvent", function(self, _, name)
   if name == addonName then
     self:UnregisterEvent("ADDON_LOADED")
-    -- The store needs the other characters that Seek knows, for saved
+    -- The store needs every character whose bags Seek keeps, for saved
     -- settings from before hidden characters (core/SettingsStore.lua). The
     -- core loads them when it starts; Storage.lua starts it too, and only
     -- the first call does, whichever frame gets ADDON_LOADED first.
     ns.Start()
-    local otherCharacters = {}
-    for i, character in ipairs(ns.OtherCharacters()) do
-      otherCharacters[i] = character.owner
-    end
     store = ns.NewSettingsStore(ns.settings, { account = SeekSettings, character = SeekCharacterSettings },
-      ns.SettingChanged, otherCharacters)
+      ns.SettingChanged, ns.CharactersWithBags())
     -- Saved at once, so that the old setting's conversion is done only once.
     Save()
     -- The core used the defaults until now; tell it the loaded values.

@@ -353,6 +353,14 @@ describe("the settings store", function()
       assert.are.same({}, store:Saved().account.values)
     end)
 
+    it("off, still hides them when the saved hidden characters hold nothing that fits", function()
+      local saved = {
+        account = { version = 1, values = { otherCharactersBags = false, hiddenCharacters = { 42, false } } },
+      }
+      local hidden = { ["Bob-Stormrage"] = true, ["Carol-ArgentDawn"] = true }
+      assert.are.same(hidden, NewStore(saved, DEFINITIONS, OTHERS):Get("hiddenCharacters"))
+    end)
+
     it("off, with no other character known, saves nothing", function()
       local saved = { account = { version = 1, values = { otherCharactersBags = false } } }
       assert.are.same({}, NewStore(saved, DEFINITIONS, {}):Saved().account.values)

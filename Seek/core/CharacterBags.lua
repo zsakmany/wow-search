@@ -55,11 +55,6 @@ function ns.LoadCharacterBags(data)
   end
 end
 
--- Saves each character's bags into the account-wide saved data.
-local function SaveBags()
-  ns.SaveAccount({ bags = { version = SAVED_VERSION, characters = bagsByOwner } })
-end
-
 -- Sources.lua calls this after each read of a source, with the entries that
 -- it accepted. A read of Seek's bag source replaces the current character's
 -- items, and saves them.
@@ -76,7 +71,7 @@ function ns.KeepCharacterBags(id, copies)
     }
   end
   bagsByOwner[owner] = items
-  SaveBags()
+  ns.SaveAccount({ bags = { version = SAVED_VERSION, characters = bagsByOwner } })
 end
 
 -- The other characters' items, the owners in name order, so that the
@@ -135,6 +130,17 @@ function ns.OtherCharacters()
     return a.shownName < b.shownName
   end)
   return characters
+end
+
+-- Every character whose bags Seek keeps, the current character too, as
+-- owners ("Name-Realm"), in name order.
+function ns.CharactersWithBags()
+  local owners = {}
+  for owner in pairs(bagsByOwner) do
+    owners[#owners + 1] = owner
+  end
+  table.sort(owners)
+  return owners
 end
 
 ns.WatchSettings(function(name)

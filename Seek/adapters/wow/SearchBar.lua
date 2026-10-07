@@ -308,8 +308,9 @@ tooltip:SetFrameStrata("TOOLTIP")
 local tooltipShown -- what the tooltip shows for Seek now, or nil (see RenderTooltip)
 
 -- Each kind (core/Kinds.lua) and how to fill Seek's tooltip with the tooltip
--- of a thing of that kind, from its game ID. Each returns false when the
--- game has nothing to show yet (a quest without a link).
+-- of a thing of that kind, from its game ID and its result row. Each
+-- returns false when the game has nothing to show yet (a quest without a
+-- link).
 local setTooltip = {
   item = function(itemID)
     tooltip:SetItemByID(itemID)
@@ -325,6 +326,13 @@ local setTooltip = {
       return false
     end
     tooltip:SetHyperlink(link)
+    return true
+  end,
+  -- The game's own talent tooltip for the trait entry, at the talent's
+  -- current rank: its spent points (0 for a talent without points, as the
+  -- talent window does for a choice node's other options).
+  talent = function(entryID, result)
+    tooltip:SetTraitEntry(entryID, result.spentPoints or 0)
     return true
   end,
 }
@@ -347,9 +355,11 @@ local function RenderTooltip(view)
     HideTooltip()
     return
   end
-  -- The same thing at the same place: leave it as it is, so it does not
-  -- flicker on each key press.
-  local shown = table.concat({ result.kind, tostring(result.gameID), wanted.row, wanted.side }, ":")
+  -- The same thing (for a talent, at the same rank) at the same place:
+  -- leave it as it is, so it does not flicker on each key press.
+  local shown = table.concat({
+    result.kind, tostring(result.gameID), tostring(result.spentPoints), wanted.row, wanted.side,
+  }, ":")
   if shown == tooltipShown and tooltip:IsOwned(frame) then
     return
   end
@@ -362,7 +372,7 @@ local function RenderTooltip(view)
     tooltip:SetPoint("TOPLEFT", row, "TOPRIGHT", ROW_INSET + TOOLTIP_GAP, 0)
   end
   local set = setTooltip[result.kind]
-  if not (set and set(result.gameID)) then
+  if not (set and set(result.gameID, result)) then
     HideTooltip()
     return
   end

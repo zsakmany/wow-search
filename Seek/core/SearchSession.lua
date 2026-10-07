@@ -308,6 +308,17 @@ local function CountText(entry)
   return nil
 end
 
+-- A result's kind as its row's kind text shows it, before the owner: with
+-- the spent and possible points for an entry that has them, such as a
+-- talent ("Talent · 2/3").
+local function KindLabel(entry)
+  local label = ns.kinds[entry.kind].label
+  if entry.possiblePoints then
+    return L.KIND_WITH_POINTS:format(label, entry.spentPoints, entry.possiblePoints)
+  end
+  return label
+end
+
 -- What a result's row may show a cooldown for (see GLOSSARY.md): the
 -- result's first use action, when that is one with a game cooldown (see
 -- Kinds.lua), and the thing's game ID. Nil for a result with no such use
@@ -345,10 +356,13 @@ end
 --              results setting says), top to bottom; each has
 --              name (with the page for a game option, see RowName),
 --              icon, kind, gameID (the game's ID for the thing, from
---              the entry), kindLabel (the kind, with the owner's name for
---              another character's result, see OwnerText: the row's kind
---              text), faded (true for a result with no actions:
---              the search bar draws it faded), selected (true on one row),
+--              the entry), kindLabel (the kind, with a talent's points,
+--              see KindLabel, and with the owner's name for another
+--              character's result, see OwnerText: the row's kind text),
+--              spentPoints (a talent's spent points, for its tooltip's
+--              rank; nil for an entry without points), faded (true for a
+--              result with no actions: the search bar draws it faded),
+--              selected (true on one row),
 --              matchedLetters: the positions of the name's letters that
 --              matched the query, in order, counted in whole letters (nil
 --              for a long text match and for the recently picked things;
@@ -385,7 +399,7 @@ function SearchSession:View()
   for i = self.scroll + 1, math.min(self.scroll + VisibleRows(), #self.results) do
     local entry = self.results[i]
     local owner = OwnerText(entry, current)
-    local kindLabel = ns.kinds[entry.kind].label
+    local kindLabel = KindLabel(entry)
     rows[#rows + 1] = {
       name = RowName(entry),
       icon = entry.icon,
@@ -397,6 +411,7 @@ function SearchSession:View()
       blocked = i == self.selection and SameThing(entry, self.useKeyBlockedEntry),
       matchedLetters = self.matchedLetters[entry],
       countText = CountText(entry),
+      spentPoints = entry.spentPoints,
       cooldownOf = RowCooldownOf(entry),
     }
   end

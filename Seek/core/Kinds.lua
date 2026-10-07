@@ -84,6 +84,16 @@ ns.kinds = {
       { id = "openInOptionsWindow", label = L.ACTION_OPEN_IN_OPTIONS_WINDOW, type = "show" },
     },
   },
+  -- A talent (see GLOSSARY.md). Its row's kind text shows its points. No
+  -- use action: Seek never spends points or changes talents. In combat,
+  -- the WoW action adapter does not open the talent window; then the action
+  -- does nothing.
+  talent = {
+    label = L.KIND_TALENT,
+    actions = {
+      { id = "showInTalents", label = L.ACTION_SHOW_IN_TALENTS, type = "show" },
+    },
+  },
 }
 
 -- Check the rules above when the addon loads, so a wrong kind fails at once.

@@ -29,10 +29,17 @@
 --           stacks together, a whole number of at least 1. The result's row
 --           shows it after the name when it is more than 1; the query never
 --           matches it.
+--   spentPoints, possiblePoints
+--           (talents) the talent's points: how many the character has
+--           spent in it, and how many it can take, such as 2 and 3. The
+--           result's kind text shows them ("Talent · 2/3"); the query never
+--           matches them.
 -- Seek rejects (leaves out) an entry with no name or an unknown kind, and
--- leaves out long text and a page that are not strings, and a count that is
--- not a whole number of at least 1. Any `inBags`, `usable`, `tracked`, or
--- `focused` other than true counts as false.
+-- leaves out long text and a page that are not strings, a count that is
+-- not a whole number of at least 1, and points that are not whole numbers
+-- with at least 1 possible point and from 0 to that many spent (then both
+-- go). Any `inBags`, `usable`, `tracked`, or `focused` other than true
+-- counts as false.
 --
 -- When its data changes, a source calls NotifyChanged(id). Seek then reads
 -- it again and replaces all of its old entries.
@@ -78,10 +85,21 @@ local started = false
 -- registered (yet) in this session.
 local saved = { version = SAVED_VERSION, sources = {} }
 
+-- Whether `value` is a whole number of at least `least`.
+local function IsWhole(value, least)
+  return type(value) == "number" and value >= least and value < math.huge and value == math.floor(value)
+end
+
 -- Whether `count` is an item count that Seek keeps: a whole number of at
 -- least 1.
 local function IsCount(count)
-  return type(count) == "number" and count >= 1 and count < math.huge and count == math.floor(count)
+  return IsWhole(count, 1)
+end
+
+-- Whether an entry's points are ones that Seek keeps: whole numbers, at
+-- least 1 possible point, and from 0 to that many spent points.
+local function ArePoints(spent, possible)
+  return IsWhole(possible, 1) and IsWhole(spent, 0) and spent <= possible
 end
 
 -- Copies an entry from a source, or returns nil to reject it. Seek keeps
@@ -92,6 +110,7 @@ local function Accept(entry)
       or not kinds[entry.kind] then
     return nil
   end
+  local points = ArePoints(entry.spentPoints, entry.possiblePoints)
   return {
     name = entry.name,
     kind = entry.kind,
@@ -105,6 +124,8 @@ local function Accept(entry)
     focused = entry.focused == true or nil,
     page = type(entry.page) == "string" and entry.page or nil,
     count = IsCount(entry.count) and entry.count or nil,
+    spentPoints = points and entry.spentPoints or nil,
+    possiblePoints = points and entry.possiblePoints or nil,
   }
 end
 
@@ -123,6 +144,8 @@ local function Prepare(copy)
     focused = copy.focused,
     page = copy.page,
     count = copy.count,
+    spentPoints = copy.spentPoints,
+    possiblePoints = copy.possiblePoints,
     match = ns.PrepareName(copy.name),
     longTextMatch = copy.longText and ns.PrepareLongText(copy.longText),
     sortName = copy.name:lower(),

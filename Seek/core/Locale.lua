@@ -21,11 +21,16 @@ ns.L = {
   KIND_SPELL = "Spell",
   KIND_QUEST = "Quest",
   KIND_GAME_OPTION = "Game option",
+  KIND_TALENT = "Talent",
 
   -- The kind shown on the row of another character's result: the kind, and
   -- the owner's name (with the realm when it is not the current
   -- character's), such as "Item · Bob" or "Item · Bob-Stormrage"
   KIND_WITH_OWNER = "%s · %s",
+
+  -- The kind shown on the row of a talent: the kind, and the talent's spent
+  -- and possible points, such as "Talent · 2/3" or "Talent · 0/1"
+  KIND_WITH_POINTS = "%s · %d/%d",
 
   -- The kind shown on the row of a result whose cooldown runs: the kind,
   -- and the time left in the game's own short format, such as "Item · 12 m"
@@ -43,6 +48,7 @@ ns.L = {
   ACTION_SHOW_IN_BAG = "Show in bag",
   ACTION_SHOW_ON_MAP = "Show on map",
   ACTION_OPEN_IN_OPTIONS_WINDOW = "Open in the Options window",
+  ACTION_SHOW_IN_TALENTS = "Show in talents",
   ACTION_FOCUS = "Focus",
   ACTION_REMOVE_FOCUS = "Remove Focus",
   ACTION_TRACK = "Track",

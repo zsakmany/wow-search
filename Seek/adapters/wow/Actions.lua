@@ -1,12 +1,13 @@
 -- The WoW action adapter: runs the actions that the core asks for through
 -- the Actions port (core/Actions.lua). Show actions only change what the
 -- player sees, so they also work in combat; the exceptions are the world
--- map and the Options window, which WoW does not let addons open in combat.
--- There is no "show in spellbook": opening the spellbook from addon code
--- taints it (issue #29). The core blocks every use action in combat. Use
--- on an item and cast on a spell run through a secure button (see below);
--- a quest's focus and tracking call no protected function, so Run runs
--- them itself, like a show action.
+-- map and the Options window, which WoW does not let addons open in combat,
+-- and the talent window (see ShowInTalents). There is no "show in
+-- spellbook": opening the spellbook from addon code taints it (issue #29);
+-- "show in talents" opens the same window, at its talents tab. The core
+-- blocks every use action in combat. Use on an item and cast on a spell
+-- run through a secure button (see below); a quest's focus and tracking
+-- call no protected function, so Run runs them itself, like a show action.
 --
 -- Show in bag works with the default Blizzard bags. With a bag addon that
 -- replaces them (such as Bagnon), the bag addon's own window opens if it
@@ -254,6 +255,56 @@ local function OpenInOptionsWindow(entry)
   end
 end
 
+-- Lights up the talent in the open talent window through the window's own
+-- search, as if the player had picked the talent's name from that search's
+-- list (ClassTalentSearchMixin:OnPreviewSearchResultClicked in
+-- Blizzard_SharedTalentUI/Blizzard_ClassTalentSearch.lua): the search box
+-- shows the name, and the window lights every talent that matches it. It
+-- does nothing when the talents tab is not shown.
+--
+-- Taint: NOT TESTED IN THE GAME YET. Filling Blizzard's own search box from
+-- addon code tainted the Options window until a /reload (issue #25), and
+-- this one may do the same to the talent window: the search box's text and
+-- the window's search state count as Seek's. This step is kept apart from
+-- opening the window so that it can be removed alone (issue #54): if the
+-- game test finds taint, delete this function and its call in
+-- ShowInTalents.
+local function LightUpTalent(name)
+  local talents = PlayerSpellsFrame and PlayerSpellsFrame.TalentsFrame
+  if not (talents and talents:IsVisible() and talents.SearchBox and talents.SetFullResultSearch) then
+    return
+  end
+  talents.SearchBox:ClearFocus()
+  talents.SearchBox:SetText(name)
+  talents:SetFullResultSearch(name)
+end
+
+-- Opens the talent window at the talents tab, through the function that
+-- Blizzard's own code calls for it (PlayerSpellsUtil.OpenToClassTalentsTab
+-- in Blizzard_FrameXMLUtil/Mainline/PlayerSpellsUtil.lua), and lights up
+-- the talent there (LightUpTalent). The window shows the tab of the spec
+-- group that it showed last; Seek does not switch it.
+--
+-- Not in combat: in combat this does nothing, like "Show on map". Opening
+-- the window runs action bar code (see below), which is riskiest while
+-- secure code is locked down in combat.
+--
+-- Taint: the talent window is also the spellbook, which addon code must not
+-- open (issue #29). Opening the window runs MultiActionBar_ShowAllGrids
+-- (PlayerSpellsFrameMixin:OnShow), which writes action bar state that
+-- secure code reads later, as Seek's code. The maintainer opened it this
+-- way with /run and found no problem; the game test of issue #54 checks
+-- the action bars, the spellbook, and a spec group switch after it.
+local function ShowInTalents(entry)
+  if InCombatLockdown() or not (PlayerSpellsUtil and PlayerSpellsUtil.OpenToClassTalentsTab) then
+    return
+  end
+  PlayerSpellsUtil.OpenToClassTalentsTab()
+  -- The light-up step: remove this line (and LightUpTalent) alone if it
+  -- taints, and keep only opening the window.
+  LightUpTalent(entry.name)
+end
+
 -- Use on an item and cast on a spell go through a secure action button
 -- (SecureActionButtonTemplate, Blizzard_FrameXML/SecureTemplates.lua). WoW
 -- runs them only from Blizzard's secure code, started by a real key press
@@ -377,6 +428,7 @@ local run = {
   showInBag = ShowInBag,
   showOnMap = ShowOnMap,
   openInOptionsWindow = OpenInOptionsWindow,
+  showInTalents = ShowInTalents,
   useItem = AlreadyRun,
   castSpell = AlreadyRun,
   focusQuest = FocusQuest,

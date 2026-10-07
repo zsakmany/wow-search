@@ -34,7 +34,18 @@
 -- initializer. The page's list calls each row's initializer only through
 -- securecallfunction (Blizzard_SettingsList.lua), so Seek's code there does
 -- not taint the list. The menu system is made for addons' menus
--- (Blizzard_Menu's guide, "Taint").
+-- (Blizzard_Menu's guide, "Taint"), but one write of it is Seek's: when
+-- the menu opens from Seek's click, it stops the Options window's list from
+-- scrolling under it (MenuManagerMixin:DisableScrollableRegions, the list's
+-- SetScrollAllowed). Closing the menu by a pick, a click elsewhere, or
+-- Escape runs in Blizzard's own code and allows the scrolling again
+-- cleanly. Only when the Options window closes while the menu is still
+-- open does that flag stay written by Seek; the list's scrolling is not
+-- protected, so it should cost nothing. The game test of #45 checks it.
+--
+-- Combat: removing a character saves at once, but its items leave the
+-- results only when combat ends, when Seek reads the other characters'
+-- bags again (ADR 0002).
 local addonName, ns = ...
 
 local L = ns.L
@@ -105,7 +116,7 @@ local function RemoveCharacterMenu(_, root)
     return
   end
   for _, character in ipairs(characters) do
-    root:CreateButton(character.name, function()
+    root:CreateButton(character.shownName, function()
       ns.ConfirmRemoveCharacter(character)
     end)
   end

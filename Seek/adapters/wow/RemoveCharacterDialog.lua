@@ -86,7 +86,7 @@ end)
 -- that is still open.
 function ns.ConfirmRemoveCharacter(character)
   owner = character.owner
-  question:SetText(L.REMOVE_CHARACTER_QUESTION:format(character.name))
+  question:SetText(L.REMOVE_CHARACTER_QUESTION:format(character.shownName))
   dialog:SetHeight(TEXT_TOP + question:GetStringHeight() + TEXT_BUTTON_GAP + BUTTON_HEIGHT + BUTTON_BOTTOM)
   dialog:Show()
   dialog:Raise()

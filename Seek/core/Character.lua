@@ -8,7 +8,8 @@
 -- Any part of the core can ask ns.CurrentCharacter(): to keep the current
 -- character's bags under its name, and to tell another character's entries
 -- from its own. ns.OwnerName() shows another character's name: on the row
--- of its result, and in the list of the saved characters.
+-- of its result, and in the list of the other characters whose bags Seek
+-- keeps.
 local _, ns = ...
 
 local adapter

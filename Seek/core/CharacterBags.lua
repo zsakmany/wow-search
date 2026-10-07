@@ -118,18 +118,18 @@ ns.api.RegisterSource({ id = SOURCE_ID, GetEntries = GetEntries })
 
 -- The other characters whose bags Seek keeps, for Seek's settings page,
 -- where the player can remove one: a list of tables with the character's
--- `owner` ("Name-Realm") and its `name` as Seek shows it (ns.OwnerName),
--- in name order. Never the current character.
+-- `owner` ("Name-Realm") and its `shownName`, as Seek shows it
+-- (ns.OwnerName), in that order. Never the current character.
 function ns.OtherCharacters()
   local characters = {}
   local current = ns.CurrentCharacter()
   for owner in pairs(bagsByOwner) do
     if owner ~= current then
-      characters[#characters + 1] = { owner = owner, name = ns.OwnerName(owner) }
+      characters[#characters + 1] = { owner = owner, shownName = ns.OwnerName(owner) }
     end
   end
   table.sort(characters, function(a, b)
-    return a.name < b.name
+    return a.shownName < b.shownName
   end)
   return characters
 end

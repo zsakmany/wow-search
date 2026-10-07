@@ -59,20 +59,20 @@ describe("a removed character", function()
     carol = LogIn(bob, "Carol-ArgentDawn", { Item("Wool Cloth", 2592, "Carol-ArgentDawn") })
   end)
 
-  it("can be chosen from the saved characters, which leave out the current one", function()
+  it("can be chosen from the other characters whose bags Seek keeps, never the current one", function()
     local alice = LogIn(carol, "Alice-Stormrage", { Item("Hearthstone", 6948, "Alice-Stormrage") })
     assert.are.same({
-      { owner = "Bob-Stormrage", name = "Bob" },
-      { owner = "Carol-ArgentDawn", name = "Carol-ArgentDawn" },
+      { owner = "Bob-Stormrage", shownName = "Bob" },
+      { owner = "Carol-ArgentDawn", shownName = "Carol-ArgentDawn" },
     }, alice.ns.OtherCharacters())
   end)
 
-  it("leaves the results at once, and the saved characters", function()
+  it("leaves the results at once, and the list of other characters", function()
     local alice, session = LogIn(carol, "Alice-Stormrage", {})
     assert.are.same({ "Silk Cloth | Item · Bob" }, Search(session, "silk"))
     alice.ns.RemoveCharacter("Bob-Stormrage")
     assert.are.same({}, Search(session, "silk"))
-    assert.are.same({ { owner = "Carol-ArgentDawn", name = "Carol-ArgentDawn" } }, alice.ns.OtherCharacters())
+    assert.are.same({ { owner = "Carol-ArgentDawn", shownName = "Carol-ArgentDawn" } }, alice.ns.OtherCharacters())
   end)
 
   it("leaves the other characters' items, and the current character's own, as they are", function()
@@ -87,7 +87,7 @@ describe("a removed character", function()
 
     local reloaded, session = Start(alice:Reload(), {})
     assert.are.same({}, Search(session, "silk"))
-    assert.are.same({ { owner = "Carol-ArgentDawn", name = "Carol-ArgentDawn" } }, reloaded.ns.OtherCharacters())
+    assert.are.same({ { owner = "Carol-ArgentDawn", shownName = "Carol-ArgentDawn" } }, reloaded.ns.OtherCharacters())
 
     local _, daveSession = LogIn(alice, "Dave-Stormrage", {})
     assert.are.same({}, Search(daveSession, "silk"))
@@ -103,8 +103,8 @@ describe("a removed character", function()
       "Wool Cloth | Item · Carol-ArgentDawn",
     }, Search(session, "cloth"))
     assert.are.same({
-      { owner = "Bob-Stormrage", name = "Bob" },
-      { owner = "Carol-ArgentDawn", name = "Carol-ArgentDawn" },
+      { owner = "Bob-Stormrage", shownName = "Bob" },
+      { owner = "Carol-ArgentDawn", shownName = "Carol-ArgentDawn" },
     }, again.ns.OtherCharacters())
   end)
 
@@ -112,8 +112,8 @@ describe("a removed character", function()
     local alice, session = LogIn(carol, "Alice-Stormrage", {})
     alice:ChangeSetting("otherCharactersBags", false)
     assert.are.same({
-      { owner = "Bob-Stormrage", name = "Bob" },
-      { owner = "Carol-ArgentDawn", name = "Carol-ArgentDawn" },
+      { owner = "Bob-Stormrage", shownName = "Bob" },
+      { owner = "Carol-ArgentDawn", shownName = "Carol-ArgentDawn" },
     }, alice.ns.OtherCharacters())
     alice.ns.RemoveCharacter("Bob-Stormrage")
     alice:ChangeSetting("otherCharactersBags", true)

@@ -3,11 +3,12 @@
      Settings API has no row for a text of more than one line, so Seek has
      its own template. Settings.lua sets the text when the row is shown.
      Like Blizzard's rows (SettingsListElementTemplate), the text starts 37
-     pixels from the left edge; the row's height (its Size) is room for two
-     lines, which the page keeps for it. -->
+     pixels from the left edge; the row's height (its Size) is room for three
+     lines, which the page keeps for it, so that the text does not run into
+     the next row when it wraps once more in a narrow Options window. -->
 <Ui xmlns="http://www.blizzard.com/wow/ui/">
   <Frame name="SeekSettingsTextTemplate" virtual="true">
-    <Size x="280" y="32"/>
+    <Size x="280" y="44"/>
     <Layers>
       <Layer level="OVERLAY">
         <FontString parentKey="Text" inherits="GameFontHighlightSmall" justifyH="LEFT" justifyV="TOP">

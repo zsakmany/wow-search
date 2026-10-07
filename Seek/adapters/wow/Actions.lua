@@ -17,7 +17,6 @@
 -- shown Blizzard bag button to light.
 local _, ns = ...
 
-local KEYRING = Enum.BagIndex.Keyring -- KEYRING_CONTAINER, -1
 
 local HIGHLIGHT_SECONDS = 4
 
@@ -109,9 +108,8 @@ local function ShowInBag(entry)
   -- keyring: it always opens in its own frame, as the game's keyring button
   -- opens it. For the keyring, Seek does not ask IsBagOpen first: while the
   -- combined bag is shown, IsBagOpen says that the keyring is open too
-  -- (ContainerFrameCombinedBagsMixin:IsBagOpen in Blizzard_UIPanels_Game/
-  -- Mainline/ContainerFrame.lua). OpenBag does nothing for a keyring that is
-  -- open already.
+  -- (ContainerFrameCombinedBagsMixin:IsBagOpen in ContainerFrame.lua).
+  -- OpenBag does nothing for a keyring that is open already.
   --
   -- The showKeyring CVar does not stop OpenBag: only ToggleBag, which the
   -- game's keyring button calls, checks it. The game turns it on by itself
@@ -120,7 +118,7 @@ local function ShowInBag(entry)
   -- it is off all the same (the player can turn it off with /console), the
   -- keyring button does not open the keyring, but Show in bag does.
   for _, target in ipairs(targets) do
-    if target.bag == KEYRING or not IsBagOpen(target.bag) then
+    if ns.IsKeyring(target.bag) or not IsBagOpen(target.bag) then
       OpenBag(target.bag)
     end
   end

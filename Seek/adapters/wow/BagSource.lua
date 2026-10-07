@@ -25,7 +25,8 @@ local ITEM_NAME_LINE = Enum.TooltipDataLineType.ItemName
 --
 -- The showKeyring CVar does not matter here: the game's keyring button
 -- checks it before it opens the keyring, and the game's bag code reads the
--- keyring without it (ItemUtil.IteratePlayerInventory).
+-- keyring without it (ItemUtil.IteratePlayerInventory). Works in combat:
+-- Show in bag, a show action, calls it then too.
 function ns.BagIDs()
   local bags = {}
   for bag = FIRST_BAG, LAST_BAG do
@@ -35,6 +36,11 @@ function ns.BagIDs()
     bags[#bags + 1] = KEYRING
   end
   return bags
+end
+
+-- Whether the bag with this ID is the keyring.
+function ns.IsKeyring(bag)
+  return bag == KEYRING
 end
 
 -- Items whose data the game is still loading (item ID -> true).
@@ -118,7 +124,8 @@ Seek.RegisterSource({ id = SOURCE_ID, GetEntries = GetEntries })
 
 -- BAG_UPDATE_DELAYED comes once after a batch of bag changes (loot, sell,
 -- move), the keyring's too: each changed bag, the keyring included, gets its
--- BAG_UPDATE first (the game's keyring button listens to that one).
+-- BAG_UPDATE first (the game's own bag frames update on it for the keyring
+-- too: ContainerFrame.lua, MatchesBagID).
 -- PLAYER_ENTERING_WORLD reads the bags once they are ready at login.
 -- Seek decides when to read: in combat, it waits for the end (ADR 0002).
 local events = CreateFrame("Frame")

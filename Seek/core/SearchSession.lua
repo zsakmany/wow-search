@@ -108,9 +108,9 @@ function ns.NewSearchSession(onViewChanged)
       onViewChanged(view)
     end
   end
-  -- New entries, or a changed setting (the number of visible results, the
-  -- tooltip side), take effect at once: search again, and keep the
-  -- selected result in view.
+  -- New entries, a changed setting (the number of visible results, the
+  -- tooltip side), or forgotten picks take effect at once: search again,
+  -- and keep the selected result in view.
   local function SearchAgain()
     if session.isOpen then
       session:Search(true)
@@ -119,6 +119,7 @@ function ns.NewSearchSession(onViewChanged)
   end
   ns.WatchEntries(SearchAgain)
   ns.WatchSettings(SearchAgain)
+  ns.WatchForgottenPicks(SearchAgain)
   ns.WatchCombat(function(inCombat)
     if not inCombat then
       session.useKeyBlockedEntry = nil

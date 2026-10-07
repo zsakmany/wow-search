@@ -73,7 +73,7 @@ An entry that matches the current query and is shown in the search bar. While th
 _Avoid_: Hit, match, suggestion
 
 **Pick**:
-One time that the player ran an action on a result, which Seek remembers so it can rank that thing higher later. A blocked action is not a pick, and the forget action is never a pick. Seek keeps the picks per character, next to the saved copy. The button "Forget all picks" on Seek's settings page forgets all picks of the current character at once.
+One time that the player ran an action on a result, which Seek remembers so it can rank that thing higher later. A blocked action is not a pick, and the forget action is never a pick. Seek keeps the picks per character, next to the saved copy. The player can also forget all picks of the current character at once.
 _Avoid_: History, usage, selection (selection is the highlighted row)
 
 **Setting**:

@@ -153,11 +153,25 @@ function ns.ForgetPicks(entry)
   SavePicks()
 end
 
+-- The functions to call when all picks are forgotten (see
+-- ns.WatchForgottenPicks).
+local forgottenWatchers = {}
+
+-- Calls `watcher()` each time all picks are forgotten, so that an open
+-- search bar can show it at once. (The forget action needs no notice: the
+-- search session runs it itself.)
+function ns.WatchForgottenPicks(watcher)
+  forgottenWatchers[#forgottenWatchers + 1] = watcher
+end
+
 -- Removes all picks of this character, of every thing, and saves the
 -- picks: the button "Forget all picks" on Seek's settings page.
 function ns.ForgetAllPicks()
   picks = {}
   SavePicks()
+  for _, watcher in ipairs(forgottenWatchers) do
+    watcher()
+  end
 end
 
 -- How much the picks lift each result of `query`: a function that takes an

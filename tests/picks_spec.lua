@@ -498,14 +498,10 @@ describe("picks", function()
     -- puts "Hearthstone" first.
     local entries = { Item("Hearthstone", 6948, true), Item("Hearty Rhino Hide", 8171, true) }
 
-    -- The player clicks "Forget all picks" on Seek's settings page, and Yes
-    -- in the question after it.
-    local function ForgetAllPicks()
-      game.ns.ForgetAllPicks()
-    end
-
     -- The player picked both, "Hearty Rhino Hide" more often and with a
-    -- query that lifts it for "hearth", so it ranks first there.
+    -- query that lifts it for "hearth", so it ranks first there. In the tests
+    -- below, ns.ForgetAllPicks is what the settings page calls after the
+    -- player clicks "Forget all picks" and Yes.
     before_each(function()
       GivenSource("Test.Bags", entries)
       Pick("hea", "Hearty Rhino Hide", 2)
@@ -513,20 +509,32 @@ describe("picks", function()
       assert.are.same({ "Hearty Rhino Hide", "Hearthstone" }, Search("hearth"))
     end)
 
-    it("leaves the hint in the empty search bar: it is no pick itself", function()
-      ForgetAllPicks()
+    it("leaves the empty search bar with its hint, and records no pick", function()
+      game.ns.ForgetAllPicks()
       local view = session:Open()
       assert.are.same({}, view.results)
       assert.are.equal(HINT, view.hint)
     end)
 
     it("ranks by match only, as before any pick", function()
-      ForgetAllPicks()
+      game.ns.ForgetAllPicks()
       assert.are.same({ "Hearthstone", "Hearty Rhino Hide" }, Search("hearth"))
     end)
 
+    it("updates an open search bar at once", function()
+      local views = {}
+      local open = game.ns.NewSearchSession(function(view)
+        views[#views + 1] = view
+      end)
+      assert.are.same({ "Hearthstone", "Hearty Rhino Hide" }, Names(open:Open()))
+      game.ns.ForgetAllPicks()
+      assert.is_true(#views > 0)
+      assert.are.same({}, views[#views].results)
+      assert.are.equal(HINT, views[#views].hint)
+    end)
+
     it("is kept over a reload", function()
-      ForgetAllPicks()
+      game.ns.ForgetAllPicks()
       game = game:Reload()
       GivenSource("Test.Bags", entries)
       game:Start()
@@ -546,7 +554,7 @@ describe("picks", function()
       end
       LogIn("Other-Realm")
       Pick("hearth", "Hearthstone")
-      ForgetAllPicks()
+      game.ns.ForgetAllPicks()
       LogIn("Tester")
       assert.are.same({ "Hearthstone", "Hearty Rhino Hide" }, Names(session:Open()))
       assert.are.same({ "Hearty Rhino Hide", "Hearthstone" }, Search("hearth"))
@@ -554,7 +562,7 @@ describe("picks", function()
 
     it("works in combat", function()
       game:EnterCombat()
-      ForgetAllPicks()
+      game.ns.ForgetAllPicks()
       assert.are.equal(HINT, session:Open().hint)
       assert.are.same({ "Hearthstone", "Hearty Rhino Hide" }, Search("hearth"))
     end)

@@ -158,7 +158,7 @@ end
 -- Seek's game option source leaves it out (rows with no name); it leaves
 -- out the explanation too (no setting and no action). The button's text
 -- is in the Options window's search (addSearchTags).
-local function AddButton(layout, text, explanationText, click)
+local function AddButtonWithExplanation(layout, text, explanationText, click)
   layout:AddInitializer(CreateSettingsButtonInitializer("", text, click, nil, true))
 
   local explanation = Settings.CreateElementInitializer("SeekSettingsTextTemplate", {})
@@ -223,7 +223,7 @@ local function RegisterPage()
   local tooltipSideSetting = StoreSetting("SEEK_TOOLTIP_SIDE", "tooltipSide", L.SETTING_TOOLTIP_SIDE)
   Settings.CreateDropdown(page, tooltipSideSetting, TooltipSideChoices, L.SETTING_TOOLTIP_SIDE_TOOLTIP)
 
-  AddButton(layout, L.SETTING_OTHER_CHARACTERS, L.SETTING_OTHER_CHARACTERS_EXPLANATION, function(self)
+  AddButtonWithExplanation(layout, L.SETTING_OTHER_CHARACTERS, L.SETTING_OTHER_CHARACTERS_EXPLANATION, function(self)
     MenuUtil.CreateContextMenu(self, OtherCharactersMenu)
   end)
   HiddenCharactersSetting()
@@ -231,7 +231,7 @@ local function RegisterPage()
   local minimapIconSetting = StoreSetting("SEEK_MINIMAP_ICON", "minimapIcon", L.SETTING_MINIMAP_ICON)
   Settings.CreateCheckbox(page, minimapIconSetting, L.SETTING_MINIMAP_ICON_TOOLTIP)
 
-  AddButton(layout, L.SETTING_FORGET_ALL_PICKS, L.SETTING_FORGET_ALL_PICKS_EXPLANATION, function()
+  AddButtonWithExplanation(layout, L.SETTING_FORGET_ALL_PICKS, L.SETTING_FORGET_ALL_PICKS_EXPLANATION, function()
     ns.Confirm(L.FORGET_ALL_PICKS_QUESTION, ns.ForgetAllPicks)
   end)
 

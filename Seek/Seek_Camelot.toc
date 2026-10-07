@@ -34,12 +34,15 @@ core\SearchSession.lua
 # WoW adapters. PublicApi.lua first: it publishes the global `Seek` that
 # the sources register through. Storage.lua starts the core, and
 # Settings.lua loads the settings, when the saved variables are loaded,
-# after all of these files have run.
+# after all of these files have run. SettingsText.xml holds a template for
+# Seek's settings page.
 adapters\wow\PublicApi.lua
 adapters\wow\CombatState.lua
 adapters\wow\Character.lua
 adapters\wow\Storage.lua
+adapters\wow\SettingsText.xml
 adapters\wow\Settings.lua
+adapters\wow\RemoveCharacterDialog.lua
 adapters\wow\Clock.lua
 adapters\wow\Scheduler.lua
 adapters\wow\Actions.lua

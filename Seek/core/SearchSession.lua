@@ -266,27 +266,14 @@ local function Tooltip(session, rows)
   return { row = session.selection - session.scroll, side = side }
 end
 
--- An owner's name and realm, from its "Name-Realm". A character's name has
--- no hyphen; the realm follows the first one. Nil for an owner with no
--- realm.
-local function SplitOwner(owner)
-  return owner:match("^(.-)%-(.+)$")
-end
-
--- The owner of another character's entry, as its row shows it: the name,
--- and the realm only when it is not the current character's ("Bob", or
--- "Bob-Stormrage"). Nil for the current character's entries, and for
--- entries with no owner.
+-- The owner of another character's entry, as its row shows it
+-- (ns.OwnerName: "Bob", or "Bob-Stormrage"). Nil for the current
+-- character's entries, and for entries with no owner.
 local function OwnerText(entry, current)
   if not IsOtherOwner(entry, current) then
     return nil
   end
-  local name, realm = SplitOwner(entry.owner)
-  local _, currentRealm = SplitOwner(current or "")
-  if realm and realm == currentRealm then
-    return name
-  end
-  return entry.owner
+  return ns.OwnerName(entry.owner)
 end
 
 -- A result's name as its row shows it: a game option's name comes with the

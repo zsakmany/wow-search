@@ -17,6 +17,12 @@
 -- the source gives no entries, but Seek still keeps the current
 -- character's bags. A change of the setting reads the source again, so it
 -- takes effect without a reload (in combat, when combat ends: ADR 0002).
+--
+-- Seek keeps a character's bags until the player removes the character on
+-- Seek's settings page (a removed character, see GLOSSARY.md), also while
+-- the setting is off. Its items then leave the results, the same way: the
+-- source is read again. It comes back when it logs in again. Seek never
+-- removes a character by itself.
 local _, ns = ...
 
 -- Seek's bag source registers with this id.
@@ -51,6 +57,11 @@ function ns.LoadCharacterBags(data)
   end
 end
 
+-- Saves each character's bags into the account-wide saved data.
+local function SaveBags()
+  ns.SaveAccount({ bags = { version = SAVED_VERSION, characters = bagsByOwner } })
+end
+
 -- Sources.lua calls this after each read of a source, with the entries that
 -- it accepted. A read of Seek's bag source replaces the current character's
 -- items, and saves them.
@@ -67,7 +78,7 @@ function ns.KeepCharacterBags(id, copies)
     }
   end
   bagsByOwner[owner] = items
-  ns.SaveAccount({ bags = { version = SAVED_VERSION, characters = bagsByOwner } })
+  SaveBags()
 end
 
 -- The other characters' items, the owners in name order, so that the
@@ -104,6 +115,35 @@ local function GetEntries()
 end
 
 ns.api.RegisterSource({ id = SOURCE_ID, GetEntries = GetEntries })
+
+-- The other characters whose bags Seek keeps, for Seek's settings page,
+-- where the player can remove one: a list of tables with the character's
+-- `owner` ("Name-Realm") and its `name` as Seek shows it (ns.OwnerName),
+-- in name order. Never the current character.
+function ns.OtherCharacters()
+  local characters = {}
+  local current = ns.CurrentCharacter()
+  for owner in pairs(bagsByOwner) do
+    if owner ~= current then
+      characters[#characters + 1] = { owner = owner, name = ns.OwnerName(owner) }
+    end
+  end
+  table.sort(characters, function(a, b)
+    return a.name < b.name
+  end)
+  return characters
+end
+
+-- The player removes another character (a removed character, see
+-- GLOSSARY.md), for example after deleting or renaming it, on Seek's
+-- settings page: Seek no longer keeps its bags, so its items leave the
+-- results. Its bags come back when it logs in again. Seek never removes a
+-- character by itself.
+function ns.RemoveCharacter(owner)
+  bagsByOwner[owner] = nil
+  SaveBags()
+  ns.api.NotifyChanged(SOURCE_ID)
+end
 
 ns.WatchSettings(function(name)
   if name == "otherCharactersBags" then

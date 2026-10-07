@@ -17,6 +17,24 @@
 -- value in the settings in use (the account's, or the character's own).
 -- The character switch has no default (Settings.CannotDefault), so Defaults
 -- leaves it as it is.
+--
+-- Under "Show other characters' bags", the button "Remove a character…"
+-- removes another character's saved bags (a removed character, see
+-- GLOSSARY.md; core/CharacterBags.lua), with its explanation under it. It is
+-- not a setting: nothing of it is saved in the settings, and Defaults does
+-- not touch it. A click opens the game's menu (Blizzard_Menu) of the saved
+-- characters, made anew on each click, and a click on a name asks first in
+-- Seek's own dialog (adapters/wow/RemoveCharacterDialog.lua).
+--
+-- Taint: the page is built only with the Settings API's own calls, and
+-- Seek never writes into the Options window's frames (issue #25). The
+-- button is Blizzard's button row (CreateSettingsButtonInitializer), with
+-- Seek's click function; the explanation is a row of Seek's own template
+-- (SettingsText.xml), which the page creates and fills through the row's
+-- initializer. The page's list calls each row's initializer only through
+-- securecallfunction (Blizzard_SettingsList.lua), so Seek's code there does
+-- not taint the list. The menu system is made for addons' menus
+-- (Blizzard_Menu's guide, "Taint").
 local addonName, ns = ...
 
 local L = ns.L
@@ -77,11 +95,46 @@ local function StoreSetting(variable, name, label)
   return setting
 end
 
+-- The menu of the "Remove a character…" button: the other characters whose
+-- bags Seek keeps, by name, read anew on each click. A click on a name asks
+-- first (adapters/wow/RemoveCharacterDialog.lua), and closes the menu.
+local function RemoveCharacterMenu(_, root)
+  local characters = ns.OtherCharacters()
+  if #characters == 0 then
+    root:CreateTitle(L.SETTING_REMOVE_CHARACTER_NONE)
+    return
+  end
+  for _, character in ipairs(characters) do
+    root:CreateButton(character.name, function()
+      ns.ConfirmRemoveCharacter(character)
+    end)
+  end
+end
+
+-- The "Remove a character…" button and its explanation under it (see the
+-- top of this file). The button has no name, so it starts where the other
+-- rows' names start, and Seek's game option source leaves it out (rows
+-- with no name). Its text is in the Options window's search
+-- (addSearchTags).
+local function AddRemoveCharacter(layout)
+  local button = CreateSettingsButtonInitializer("", L.SETTING_REMOVE_CHARACTER, function(self)
+    MenuUtil.CreateContextMenu(self, RemoveCharacterMenu)
+  end, nil, true)
+  layout:AddInitializer(button)
+
+  local explanation = Settings.CreateElementInitializer("SeekSettingsTextTemplate", {})
+  function explanation.InitFrame(_, frame)
+    frame.Text:SetText(L.SETTING_REMOVE_CHARACTER_EXPLANATION)
+  end
+  layout:AddInitializer(explanation)
+end
+
 -- The page: the character switch, the visible results slider, the tooltip
--- side dropdown, and the other characters' bags and minimap icon
--- checkboxes.
+-- side dropdown, the other characters' bags checkbox with the "Remove a
+-- character…" button, and the minimap icon checkbox.
 local function RegisterPage()
-  page = Settings.RegisterVerticalLayoutCategory(L.NAME)
+  local layout
+  page, layout = Settings.RegisterVerticalLayoutCategory(L.NAME)
 
   -- The switch changes which values the other settings show, so the page
   -- reads them again.
@@ -114,6 +167,7 @@ local function RegisterPage()
   local otherCharactersBagsSetting = StoreSetting("SEEK_OTHER_CHARACTERS_BAGS", "otherCharactersBags",
     L.SETTING_OTHER_CHARACTERS_BAGS)
   Settings.CreateCheckbox(page, otherCharactersBagsSetting, L.SETTING_OTHER_CHARACTERS_BAGS_TOOLTIP)
+  AddRemoveCharacter(layout)
 
   local minimapIconSetting = StoreSetting("SEEK_MINIMAP_ICON", "minimapIcon", L.SETTING_MINIMAP_ICON)
   Settings.CreateCheckbox(page, minimapIconSetting, L.SETTING_MINIMAP_ICON_TOOLTIP)

@@ -6,8 +6,9 @@
 --           its owner (see GLOSSARY.md)
 --
 -- Any part of the core can ask ns.CurrentCharacter(): to keep the current
--- character's bags under its name, to tell another character's entries
--- from its own, and to show the owner of another character's result.
+-- character's bags under its name, and to tell another character's entries
+-- from its own. ns.OwnerName() shows another character's name: on the row
+-- of its result, and in the list of the saved characters.
 local _, ns = ...
 
 local adapter
@@ -20,4 +21,23 @@ end
 -- in.
 function ns.CurrentCharacter()
   return adapter and adapter:Name()
+end
+
+-- An owner's name and realm, from its "Name-Realm". A character's name has
+-- no hyphen; the realm follows the first one. Nil for an owner with no
+-- realm.
+local function SplitOwner(owner)
+  return owner:match("^(.-)%-(.+)$")
+end
+
+-- Another character, as Seek shows it to the player: the name, and the
+-- realm only when it is not the current character's ("Bob", or
+-- "Bob-Stormrage").
+function ns.OwnerName(owner)
+  local name, realm = SplitOwner(owner)
+  local _, currentRealm = SplitOwner(ns.CurrentCharacter() or "")
+  if realm and realm == currentRealm then
+    return name
+  end
+  return owner
 end

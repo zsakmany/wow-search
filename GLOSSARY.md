@@ -64,6 +64,10 @@ _Avoid_: Trait, node, perk
 The character that has an entry's thing, named as "Name-Realm". The owner can be another character of the player, for example for an item in another character's bags.
 _Avoid_: Character (alone), alt, toon
 
+**Removed character**:
+Another character of the player whose saved bags the player removed, for example after deleting or renaming it. Its items no longer show. It comes back when it logs in again. Seek never removes a character by itself.
+_Avoid_: Forgotten character (forget is for picks), deleted character
+
 **Result**:
 An entry that matches the current query and is shown in the search bar. While the query is empty, the results are the recently picked things. A result with no actions is faded: the player can select it to see its tooltip, but cannot act on it or pick it.
 _Avoid_: Hit, match, suggestion

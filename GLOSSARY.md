@@ -56,6 +56,10 @@ _Avoid_: Type, category
 The time until the character can use a thing again, such as a Hearthstone or a spell, after using it. A result with a use action shows its cooldown only while it runs; a ready thing shows nothing. A cooldown never changes a result's look or rank, and the game, not Seek, refuses a use action while it runs.
 _Avoid_: Timer, recharge, lockout
 
+**Talent**:
+One talent in the talent trees of the character's class, for the spec group that the character uses now. Every talent of those trees belongs to the character, whether it has points in it or not. A talent result shows its points, as spent and possible points.
+_Avoid_: Trait, node, perk
+
 **Owner**:
 The character that has an entry's thing, named as "Name-Realm". The owner can be another character of the player, for example for an item in another character's bags.
 _Avoid_: Character (alone), alt, toon
